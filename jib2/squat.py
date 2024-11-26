@@ -79,6 +79,12 @@ class DemoNode(Node):
         self.create_timer(self.dt, self.update)
         self.get_logger().info("Running with dt of %f seconds (%fHz)" %
                                (self.dt, rate))
+        
+        # Squat params
+        self.ztop = 0.85
+        self.zlow = 0.55
+        self.zmid = (self.ztop + self.zlow) / 2
+        self.zA = (self.ztop - self.zlow) / 2
 
     # Shutdown.
     def shutdown(self):
@@ -96,8 +102,9 @@ class DemoNode(Node):
         self.t += self.dt
 
         # Compute position/orientation of the pelvis (w.r.t. world).
-        ppelvis = pxyz(0.0, 0.5, 1.5 + 0.5 * sin(self.t/2))
-        Rpelvis = Rotz(sin(self.t))
+        zpelvis = self.zmid + self.zA * cos(self.t)
+        ppelvis = pxyz(0.0, 0.5, zpelvis)
+        Rpelvis = Reye()
         Tpelvis = T_from_Rp(Rpelvis, ppelvis)
         
         # Build up and send the Pelvis w.r.t. World Transform!
