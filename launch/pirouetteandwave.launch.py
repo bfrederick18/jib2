@@ -1,6 +1,6 @@
 """Launch the pirouetting and waving demo
 
-   ros2 launch demos pirouetteandwave.launch.py
+   ros2 launch jib2 pirouetteandwave.launch.py
 
    This launch file is intended as an example of how to spin an
    ungrounded robot (humanoid) and wave programmatically.
@@ -63,7 +63,7 @@ def generate_launch_description():
     # Configure a node for the pirouette and wave demo.
     node_pirouette = Node(
         name       = 'pirouetteandwave',
-        package    = 'demos',
+        package    = 'jib2',
         executable = 'pirouetteandwave',
         output     = 'screen')
 
