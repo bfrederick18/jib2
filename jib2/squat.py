@@ -86,6 +86,8 @@ class DemoNode(Node):
         self.zmid = (self.ztop + self.zlow) / 2
         self.zA = (self.ztop - self.zlow) / 2
 
+        # Inverse kinamatic variables
+
     # Shutdown.
     def shutdown(self):
         # Destroy the node, including cleaning up the timer.
@@ -118,11 +120,17 @@ class DemoNode(Node):
         # Compute the joints.
         q    = np.zeros(len(jointnames))
         qdot = np.zeros(len(jointnames))
+        
+        # Find knee joint indicies
+        i_rknee_y = jointnames.index('r_leg_kny')
+        i_lknee_y = jointnames.index('l_leg_kny')
 
+        """
         i_relbow = jointnames.index('r_arm_elx')
 
         q[i_relbow]    = - pi/2 + pi/8 * sin(2*self.t)
         qdot[i_relbow] =          pi/4 * cos(2*self.t)
+        """
 
         # Build up a command message and publish.
         cmdmsg = JointState()
