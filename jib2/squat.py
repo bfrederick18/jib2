@@ -52,87 +52,71 @@ jointnames = ['l_leg_hpx', 'l_leg_hpy', 'l_leg_hpz',
 #   Demo Node Class
 #
 class DemoNode(Node):
-    # Initialization.
     def __init__(self, name, rate):
-        # Initialize the node, naming it as specified
         super().__init__(name)
 
-        # Initialize the transform broadcaster
         self.broadcaster = TransformBroadcaster(self)
-
-        # Add a publisher to send the joint commands.
         self.pub = self.create_publisher(JointState, '/joint_states', 10)
 
-        # Wait for a connection to happen.  This isn't necessary, but
-        # means we don't start until the rest of the system is ready.
         self.get_logger().info("Waiting for a /joint_states subscriber...")
         while(not self.count_subscribers('/joint_states')):
             pass
 
-        # Set up the timing so (t=0) will occur in the first update
-        # cycle (dt) from now.
         self.dt    = 1.0 / float(rate)
         self.t     = -self.dt
         self.start = self.get_clock().now() + Duration(seconds=self.dt)
 
-        # Create a timer to keep calling update().
         self.create_timer(self.dt, self.update)
         self.get_logger().info("Running with dt of %f seconds (%fHz)" %
                                (self.dt, rate))
         
-        # Squat params
-        self.ztop = 0.85
-        self.zlow = 0.55
-        self.zmid = (self.ztop + self.zlow) / 2
-        self.zA = (self.ztop - self.zlow) / 2
+        self.X_PELVIS = 0.0
+        self.Y_PELVIS = 0.5
+        self.Z_PELVIS_TOP = 0.85
+        self.Z_PELVIS_LOW = 0.55
+
+        self.z_mid = (self.Z_PELVIS_TOP + self.Z_PELVIS_LOW) / 2
+        self.z_A = (self.Z_PELVIS_TOP - self.Z_PELVIS_LOW) / 2  # amplitude
 
         # Inverse kinamatic variables
 
-    # Shutdown.
+
     def shutdown(self):
-        # Destroy the node, including cleaning up the timer.
         self.destroy_node()
 
-    # Return the current time (in ROS format).
+
     def now(self):
         return self.start + Duration(seconds=self.t)
 
-    # Update - send a new joint command every time step.
+
     def update(self):
-        # To avoid any time jitter enforce a constant time step and
-        # integrate to get the current time.
         self.t += self.dt
 
-        # Compute position/orientation of the pelvis (w.r.t. world).
-        zpelvis = self.zmid + self.zA * cos(self.t)
-        ppelvis = pxyz(0.0, 0.5, zpelvis)
-        Rpelvis = Reye()
-        Tpelvis = T_from_Rp(Rpelvis, ppelvis)
+        z_pelvis = self.z_mid + self.z_A * cos(self.t)
+        p_pelvis = pxyz(self.X_PELVIS, self.Y_PELVIS, z_pelvis)
+        R_pelvis = Reye()
+        T_pelvis = T_from_Rp(R_pelvis, p_pelvis)
         
-        # Build up and send the Pelvis w.r.t. World Transform!
         trans = TransformStamped()
         trans.header.stamp    = self.now().to_msg()
         trans.header.frame_id = 'world'
         trans.child_frame_id  = 'pelvis'
-        trans.transform       = Transform_from_T(Tpelvis)
+        trans.transform       = Transform_from_T(T_pelvis)
         self.broadcaster.sendTransform(trans)
 
-        # Compute the joints.
         q    = np.zeros(len(jointnames))
         qdot = np.zeros(len(jointnames))
         
-        # Find knee joint indicies
+        """ OLD SHIT WE DUNNO MAYBE THE WAVE
         i_rknee_y = jointnames.index('r_leg_kny')
         i_lknee_y = jointnames.index('l_leg_kny')
 
-        """
         i_relbow = jointnames.index('r_arm_elx')
 
         q[i_relbow]    = - pi/2 + pi/8 * sin(2*self.t)
         qdot[i_relbow] =          pi/4 * cos(2*self.t)
         """
 
-        # Build up a command message and publish.
         cmdmsg = JointState()
         cmdmsg.header.stamp = self.now().to_msg()       # Current time for ROS
         cmdmsg.name         = jointnames                # List of names
@@ -141,21 +125,18 @@ class DemoNode(Node):
         self.pub.publish(cmdmsg)
 
 
-
 #
 #  Main Code
 #
 def main(args=None):
-    # Initialize ROS and the demo node (100Hz).
     rclpy.init(args=args)
     node = DemoNode('squat', 100)
 
-    # Spin, until interrupted.
     rclpy.spin(node)
 
-    # Shutdown the node and ROS.
     node.shutdown()
     rclpy.shutdown()
+
 
 if __name__ == "__main__":
     main()
