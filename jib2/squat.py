@@ -75,8 +75,8 @@ class DemoNode(Node):
         self.Z_PELVIS_TOP = 0.85
         self.Z_PELVIS_LOW = 0.55
 
-        self.z_mid = (self.Z_PELVIS_TOP + self.Z_PELVIS_LOW) / 2
-        self.z_A = (self.Z_PELVIS_TOP - self.Z_PELVIS_LOW) / 2  # amplitude
+        self.z_pelvis_mid = (self.Z_PELVIS_TOP + self.Z_PELVIS_LOW) / 2
+        self.z_pelvis_A = (self.Z_PELVIS_TOP - self.Z_PELVIS_LOW) / 2  # amplitude
 
         # Inverse kinamatic variables
 
@@ -92,7 +92,7 @@ class DemoNode(Node):
     def update(self):
         self.t += self.dt
 
-        z_pelvis = self.z_mid + self.z_A * cos(self.t)
+        z_pelvis = self.z_pelvis_mid + self.z_pelvis_A * cos(self.t)
         p_pelvis = pxyz(self.X_PELVIS, self.Y_PELVIS, z_pelvis)
         R_pelvis = Reye()
         T_pelvis = T_from_Rp(R_pelvis, p_pelvis)
@@ -106,6 +106,17 @@ class DemoNode(Node):
 
         q    = np.zeros(len(jointnames))
         qdot = np.zeros(len(jointnames))
+
+        # not moving in the x or z; just toe over the knee
+        I_LHIP_Y = jointnames.index('l_leg_hpy')
+        I_RHIP_Y = jointnames.index('r_leg_hpy')
+        I_LKNEE_Y = jointnames.index('l_leg_kny')
+        I_RKNEE_Y = jointnames.index('r_leg_kny')
+        I_LANKLE_Y = jointnames.index('l_leg_aky')
+        I_RANKLE_Y = jointnames.index('r_leg_aky')
+
+
+
         
         """ OLD SHIT WE DUNNO MAYBE THE WAVE
         i_rknee_y = jointnames.index('r_leg_kny')
