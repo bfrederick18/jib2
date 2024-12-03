@@ -23,7 +23,8 @@ setup(
     entry_points={
         'console_scripts': [
             'pirouetteandwave = jib2.pirouetteandwave:main',
-            'squat = jib2.squat:main'
+            'squat = jib2.squat:main',
+            'balldrop = jib2.balldrop:main'
         ],
     },
 )

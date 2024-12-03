@@ -1,4 +1,4 @@
-"""balldemo.py
+"""balldrop.py
 
    Simulate a non-physical ball and publish as a visualization marker
    array to RVIZ.
@@ -41,7 +41,7 @@ class DemoNode(Node):
         self.radius = 0.1
 
         self.p = np.array([0.0, 0.0, self.radius])
-        self.v = np.array([1.0, 0.1,  5.0       ])
+        self.v = np.array([0.0, 0.0,  5.0       ])
         self.a = np.array([0.0, 0.0, -9.81      ])
 
         # Create the sphere marker.
@@ -88,6 +88,12 @@ class DemoNode(Node):
         # integrate to get the current time.
         self.t += self.dt
 
+        k = 0.05
+        v_mag = np.linalg.norm(self.v)
+        drag = -k * v_mag * self.v
+
+        self.a = np.array([0.0, 0.0, -9.81]) + drag
+        
         # Integrate the velocity, then the position.
         self.v += self.dt * self.a
         self.p += self.dt * self.v
@@ -96,7 +102,15 @@ class DemoNode(Node):
         if self.p[2] < self.radius:
             self.p[2] = self.radius + (self.radius - self.p[2])
             self.v[2] *= -1.0
-            self.v[0] *= -1.0   # Change x just for the fun of it!
+            self.v[0] *= 0.0
+        
+        """
+        hand_position = np.array([0.0, 0.0, 1.5])
+        if np.linalg.norm(self.p - hand_position) < self.radius:
+            self.p = hand_position
+            self.v = np.array([0.0, 0.0, -5.0])
+        """
+        
 
         # Update the ID number to create a new ball and leave the
         # previous balls where they are.

@@ -1,6 +1,6 @@
-"""Launch the ball demo
+"""Launch the ball drop demo
 
-   ros2 launch demos balldemo.launch.py
+   ros2 launch jib2 balldrop.launch.py
 
    This is only intended to demonstrate the example.  Please
    edit/update as appropriate.
@@ -38,8 +38,8 @@ def generate_launch_description():
     # Configure a node for the point_publisher.
     node_demo = Node(
         name       = 'balldemo',
-        package    = 'demos',
-        executable = 'balldemo',
+        package    = 'jib2',
+        executable = 'balldrop',
         output     = 'screen',
         on_exit    = Shutdown())
 
