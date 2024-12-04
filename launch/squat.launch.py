@@ -60,7 +60,7 @@ def generate_launch_description():
         arguments  = ['-d', rvizcfg],
         on_exit    = Shutdown())
 
-    # Configure a node for the pirouette and wave demo.
+    # Configure a node for squat.
     node_squat = Node(
         name       = 'squat',
         package    = 'jib2',

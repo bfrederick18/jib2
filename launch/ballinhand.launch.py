@@ -63,6 +63,13 @@ def generate_launch_description():
         package    = 'jib2',
         executable = 'ballinhand',
         output     = 'screen')
+    
+    # Configure a node for squat.
+    node_squat = Node(
+        name       = 'squat',
+        package    = 'jib2',
+        executable = 'squat',
+        output     = 'screen')
 
 
     ######################################################################
@@ -73,4 +80,5 @@ def generate_launch_description():
         node_robot_state_publisher,
         node_rviz,
         node_ballinhand,
+        node_squat
     ])
