@@ -24,7 +24,8 @@ setup(
         'console_scripts': [
             'pirouetteandwave = jib2.pirouetteandwave:main',
             'squat = jib2.squat:main',
-            'balldrop = jib2.balldrop:main'
+            'balldrop = jib2.balldrop:main',
+            'ballinhand = jib2.ballinhand:main'
         ],
     },
 )
