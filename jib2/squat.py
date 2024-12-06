@@ -83,6 +83,7 @@ class DemoNode(Node):
         self.qdot = np.zeros(len(jointnames))
 
         (ptip0, Rtip0, Jv0, Jw0) = self.chain_left_leg.fkin(self.q[0:6])
+        print(ptip0)  # [ 0.      0.1115 -0.862 ]
 
         self.pd = ptip0
 
@@ -121,6 +122,7 @@ class DemoNode(Node):
         (ptip, Rtip, Jv, Jw) = self.chain_left_leg.fkin(self.q[0:6])
 
         err = self.pd - ptip
+        print(err)
 
         gamma = self.gamma
         weight_mat = gamma**2 * np.eye(6)
