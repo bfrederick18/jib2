@@ -63,10 +63,6 @@ class DemoNode(Node):
         self.dt    = 1.0 / float(rate)
         self.t     = -self.dt
         self.start = self.get_clock().now() + Duration(seconds=self.dt)
-
-        self.create_timer(self.dt, self.update)
-        self.get_logger().info("Running with dt of %f seconds (%fHz)" %
-                               (self.dt, rate))
         
         self.X_PELVIS = 0.0
         self.Y_PELVIS = 0.5
@@ -75,6 +71,28 @@ class DemoNode(Node):
 
         self.z_pelvis_mid = (self.Z_PELVIS_TOP + self.Z_PELVIS_LOW) / 2
         self.z_pelvis_A = (self.Z_PELVIS_TOP - self.Z_PELVIS_LOW) / 2  # amplitude
+
+        self.chain_left_leg = KinematicChain(self, 'pelvis', 'l_foot', [jointnames[i] for i in [2, 0, 1, 3, 5, 4]])  # nope
+
+        # self.chain_right_leg = KinematicChain(self, 'pelvis', 'r_foot', jointnames[6:12])    # untested
+        # self.chain_torso = KinematicChain(self, 'pelvis', 'u_torso', jointnames[12:16])      # untested
+        # self.chain_left_arm = KinematicChain(self, 'u_torso', 'l_hand', jointnames[16:23])   # untested
+        # self.chain_right_arm = KinematicChain(self, 'u_torso', 'r_hand', jointnames[23:30])  # untested
+        
+        self.q = np.zeros(len(jointnames))
+        self.qdot = np.zeros(len(jointnames))
+
+        (ptip0, Rtip0, Jv0, Jw0) = self.chain_left_leg.fkin(self.q[0:6])
+
+        self.pd = ptip0
+
+        self.K_p = 50.0
+        self.gamma = 0.1
+        self.K_s = 1.0
+
+        self.create_timer(self.dt, self.update)
+        self.get_logger().info("Running with dt of %f seconds (%fHz)" %
+                               (self.dt, rate))
 
 
     def shutdown(self):
@@ -100,25 +118,32 @@ class DemoNode(Node):
         trans.transform       = Transform_from_T(T_pelvis)
         self.broadcaster.sendTransform(trans)
 
-        q = np.zeros(len(jointnames))
-        qdot = np.zeros(len(jointnames))
+        (ptip, Rtip, Jv, Jw) = self.chain_left_leg.fkin(self.q[0:6])
 
-        # not moving in the x or z; just toe over the knee
-        I_LHIP_Y = jointnames.index('l_leg_hpy')
-        I_RHIP_Y = jointnames.index('r_leg_hpy')
-        I_LKNEE  = jointnames.index('l_leg_kny')
-        I_RKNEE  = jointnames.index('r_leg_kny')
-        I_LANKLE = jointnames.index('l_leg_akx')
-        I_RANKLE = jointnames.index('r_leg_akx')
+        err = self.pd - ptip
 
+        gamma = self.gamma
+        weight_mat = gamma**2 * np.eye(6)
+        Jwinv = np.linalg.pinv(Jv.T @ Jv + weight_mat) @ Jv.T
+
+        qdot_primary = Jwinv @ (self.K_p * err)
+
+        q0 = np.zeros(6)  # desired nominal joint positions
+        qsdot = -self.K_s * (self.q[0:6] - q0)
+
+        I = np.eye(6)
+        qdot_sec = (I - Jwinv @ Jv) @ qsdot
+
+        qdot_left_leg = qdot_primary + qdot_sec
+
+        self.q[0:6] += qdot_left_leg * self.dt
 
         cmdmsg = JointState()
         cmdmsg.header.stamp = self.now().to_msg()       # Current time for ROS
         cmdmsg.name         = jointnames                # List of names
-        cmdmsg.position     = q.flatten().tolist()           # List of positions
-        cmdmsg.velocity     = qdot.flatten().tolist()        # List of velocities
+        cmdmsg.position     = self.q.tolist()           # List of positions
+        cmdmsg.velocity     = self.qdot.tolist()        # List of velocities
         self.pub.publish(cmdmsg)
-
 
 #
 #  Main Code
