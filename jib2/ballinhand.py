@@ -14,6 +14,19 @@ from tf2_ros import Buffer, TransformListener, LookupException
 from hw5code.TransformHelpers import Point_from_p
 import numpy as np
 
+import rclpy
+import numpy as np
+
+from rclpy.node                 import Node
+from rclpy.qos                  import QoSProfile, DurabilityPolicy
+from rclpy.time                 import Duration
+from geometry_msgs.msg          import Point, Vector3, Quaternion
+from std_msgs.msg               import ColorRGBA
+from visualization_msgs.msg     import Marker
+from visualization_msgs.msg     import MarkerArray
+
+from hw5code.TransformHelpers   import *
+
 
 class BallInHandNode(Node):
     def __init__(self, name, rate):
@@ -40,7 +53,7 @@ class BallInHandNode(Node):
 
         # Initialize ball and hand position
         self.ball_position = np.array([0.0, 0.0, 1.0])  # Initial guess
-        self.attached = True  # Ball starts attached to the hand
+        self.inhand = True  # Ball starts attached to the hand
 
         # Timer for updating the ball's position
         self.dt = 1.0 / float(rate)
@@ -63,11 +76,33 @@ class BallInHandNode(Node):
 
     def update(self):
         """Update the ball's position to follow the hand."""
-        if self.attached:
+        if self.inhand:
             hand_position = self.get_hand_position()
             if hand_position is not None:
                 # Ball follows the hand's position
                 self.ball_position = hand_position
+            else:
+                print("Hand position not found")
+        else:
+            # To avoid any time jitter enforce a constant time step and
+            # integrate to get the current time.
+            self.t += self.dt
+
+            k = 0.05
+            v_mag = np.linalg.norm(self.v)
+            drag = -k * v_mag * self.v
+
+            self.a = np.array([0.0, 0.0, -9.81]) + drag
+            
+            # Integrate the velocity, then the position.
+            self.v += self.dt * self.a
+            self.p += self.dt * self.v
+
+            # Check for a bounce - not the change in x velocity is non-physical.
+            if self.p[2] < self.radius:
+                self.p[2] = self.radius + (self.radius - self.p[2])
+                self.v[2] *= -1.0
+                self.v[0] *= 0.0
 
         # Update the marker message
         self.ball_marker.header.stamp = self.get_clock().now().to_msg()
