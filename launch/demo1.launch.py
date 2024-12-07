@@ -49,7 +49,6 @@ def generate_launch_description():
         output     = 'screen',
         parameters = [{'robot_description': robot_description}])
 
-    # Configure a node for RVIZ.
     node_rviz = Node(
         name       = 'rviz', 
         package    = 'rviz2',
@@ -57,21 +56,20 @@ def generate_launch_description():
         output     = 'screen',
         arguments  = ['-d', rvizcfg],
         on_exit    = Shutdown())
-
-    # Node for squat
-    node_squat = Node(
-        name       = 'squat',
+    
+    node_demo1 = Node(
+        name       = 'demo1',
         package    = 'jib2',
-        executable = 'squat',
-        output     = 'screen')
+        executable = 'demo1',
+        output     = 'screen',
+        on_exit    = Shutdown())
     
     # Node for ball in hand
-    node_demo = Node(
+    node_ballinhand = Node(
         name       = 'ballinhand',
         package    = 'jib2',
         executable = 'ballinhand',
-        output     = 'screen',
-        on_exit    = Shutdown())
+        output     = 'screen')
 
 
     ######################################################################
@@ -81,6 +79,6 @@ def generate_launch_description():
         # Start the robot_state_publisher, RVIZ, and the demo.
         node_robot_state_publisher,
         node_rviz,
-        node_squat,
-        node_demo,
+        node_demo1,
+        node_ballinhand
     ])
