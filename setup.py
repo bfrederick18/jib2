@@ -25,7 +25,8 @@ setup(
             'pirouetteandwave = jib2.pirouetteandwave:main',
             'squat = jib2.squat:main',
             'balldrop = jib2.balldrop:main',
-            'ballinhand = jib2.ballinhand:main'
+            'ballinhand = jib2.ballinhand:main',
+            'demo1 = jib2.demo1:main'
         ],
     },
 )

@@ -28,7 +28,7 @@ def generate_launch_description():
     # LOCATE FILES
 
     # Locate the RVIZ configuration file.
-    rvizcfg = os.path.join(pkgdir('jib2'), 'rviz/viewjib.rviz')
+    rvizcfg = os.path.join(pkgdir('demos'), 'rviz/viewmarkers.rviz')
     
     # Locate the URDF file.
     urdf = os.path.join(pkgdir('atlas_description'), 'urdf/atlas_v5.urdf')
@@ -65,11 +65,11 @@ def generate_launch_description():
         executable = 'squat',
         output     = 'screen')
     
-    # Node for ball drop
+    # Node for ball in hand
     node_demo = Node(
-        name       = 'balldemo',
+        name       = 'ballinhand',
         package    = 'jib2',
-        executable = 'balldrop',
+        executable = 'ballinhand',
         output     = 'screen',
         on_exit    = Shutdown())
 

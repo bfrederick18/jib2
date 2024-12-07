@@ -1,8 +1,6 @@
-'''squat.py
+'''demo1.py
 
-This is a simple demo node that will make the Atlas robot squat up and down.
-
-   Node:      /squat
+   Node:      /demo1
    Publish:   /joint_states             sensor_msgs.msg.JointState
    Broadcast: 'pelvis' w.r.t. 'world'   geometry_msgs.msg.TransformStamped
 
@@ -95,13 +93,13 @@ JOINT_ORDERS = {
 }
 
 
-class SquatNode(Node):
+class DemoNode(Node):
     def __init__(self, name, rate):
         super().__init__(name)
 
         self.broadcaster = TransformBroadcaster(self)
         self.pub = self.create_publisher(JointState, '/joint_states', 10)
-        self.get_logger().info("Waiting for a /joint_states subscriber...")
+        self.get_logger().info('Waiting for a /joint_states subscriber...')
         while not self.count_subscribers('/joint_states'):
             pass
 
@@ -205,7 +203,7 @@ class SquatNode(Node):
         qsdot = -self.K_s * (self.q[np.r_[JOINT_ORDERS['l_leg'], JOINT_ORDERS['r_leg']]] - q_nominal)
 
         qdot = Jwinv @ (np.concatenate((vd_lfoot, wd_lfoot, vd_rfoot, wd_rfoot)) + self.K_p * err) + \
-                        (np.eye(J.shape[1]) - Jwinv @ J) @ qsdot
+            (np.eye(J.shape[1]) - Jwinv @ J) @ qsdot
 
         for i, mapped_i in enumerate(np.r_[JOINT_ORDERS['l_leg'], JOINT_ORDERS['r_leg']]):
             self.q[mapped_i] += qdot[i] * self.dt
@@ -220,7 +218,7 @@ class SquatNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = SquatNode('squat', 100)
+    node = DemoNode('squat', 100)
     rclpy.spin(node)
     node.shutdown()
     rclpy.shutdown()
