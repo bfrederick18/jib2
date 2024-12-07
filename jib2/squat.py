@@ -60,16 +60,18 @@ class DemoNode(Node):
         self.z_pelvis_A = (self.Z_PELVIS_TOP - self.Z_PELVIS_LOW) / 2
 
         # Initialize kinematic chain for the left leg
-        self.chain_left_leg = KinematicChain(self, 'pelvis', 'l_foot', 
-                                             [jointnames[i] for i in [2, 0, 1, 3, 5, 4]])
+        self.chain_left_leg = KinematicChain(self, 'pelvis', 'l_foot', [jointnames[i] for i in [2, 0, 1, 3, 5, 4]])
 
         # Joint positions and velocities
         self.q = np.zeros(len(jointnames))
         self.qdot = np.zeros(len(jointnames))
 
         # Initial foot position
-        (ptip, Rtip, _, _) = self.chain_left_leg.fkin(self.q[0:6])
-        self.pd = ptip - np.array([0.0, 0.0, 0.0])
+        (ptip, Rtip, _, _) = self.chain_left_leg.fkin(self.q[0:6]) 
+        self.pd = ptip + pxyz(self.X_PELVIS, self.Y_PELVIS, self.Z_PELVIS_TOP)
+
+        # Foot transform
+        self.Td = T_from_Rp(Reye(), self.pd)
 
         # Controller gains
         self.K_p = 10.0
@@ -106,6 +108,9 @@ class DemoNode(Node):
         self.pd = pxyz(self.X_PELVIS, self.Y_PELVIS, z_foot)
         vd = np.array([0.0, 0.0, 0.0])
 
+        Td = np.linalg.inv(T_pelvis) @ self.Td
+        self.pd = [i[3] for i in Td[0:3]]
+
         # Perform forward kinematics
         (ptip, Rtip, Jv, Jw) = self.chain_left_leg.fkin(self.q[0:6])
 
@@ -127,8 +132,7 @@ class DemoNode(Node):
         qsdot = -10 * (self.q[0:6] - q0)
 
         # Compute joint velocities
-        self.qdot[0:6] = Jwinv @ (np.concatenate((vd, np.zeros(3))) + self.K_p * err) + \
-                         (np.eye(6) - Jwinv @ J) @ qsdot
+        self.qdot[0:6] = Jwinv @ (np.concatenate((vd, np.zeros(3))) + self.K_p * err) #+ np.eye(6) - Jwinv @ J) @ qsdot
 
         # Update joint positions
         self.q[0:6] += self.qdot[0:6] * self.dt

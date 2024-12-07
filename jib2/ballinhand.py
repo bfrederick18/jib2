@@ -23,7 +23,8 @@ class BallInHandNode(Node):
     def __init__(self, name, rate):
         super().__init__(name)
 
-        # self.chain = KinematicChain(node, '' "l_hand")
+        # self.chain = KinematicChain(self, 'torso', 'l_hand', [jointnames[i] for i in [0, 1, 2, 3, 4, 5, 6]])
+
         # Set up the publisher for the ball visualization marker
         quality = QoSProfile(durability=DurabilityPolicy.TRANSIENT_LOCAL, depth=1)
         self.pub = self.create_publisher(MarkerArray, '/visualization_marker_array', quality)
@@ -67,19 +68,18 @@ class BallInHandNode(Node):
     def now(self):
         return self.start + Duration(seconds=self.t)
 
-    def get_hand_position(self):
+    def get_hand_velocity(self):
         """Get the position of the hand relative to the world frame."""
         try:
-            transform = self.tf_buffer.lookup_transform("world", "l_hand", rclpy.time.Time())
-            hand_position = np.array([
-                transform.transform.translation.x,
-                transform.transform.translation.y,
-                transform.transform.translation.z
-            ])
-            return hand_position
-        except LookupException:
-            self.get_logger().warn("Transform from 'world' to 'l_hand' not found.")
-            return None
+            joint_values = self.chain.get_joint_positions()
+            joint_velocities = self.chain.get_joint_velocities()
+
+            jacobian = self.chain.get_jacobian(joint_values)
+            velocity = jacobian @ joint_velocities
+            return velocity[:3]
+        except Exception as e:
+            self.get_logger().warn(f"Error computing hand velocity: {e}")
+            return np.zeros(3)
 
     def update(self):
         """Update the ball's position to follow the hand."""
@@ -94,11 +94,14 @@ class BallInHandNode(Node):
 
         if self.inhand:
             hand_position = self.get_hand_position()
+            hand_velocity = self.get_hand_velocity()
+
             if hand_position is not None:
                 # Ball follows the hand's position
                 self.p = hand_position
+                self.v = hand_velocity
             else:
-                print("Hand position not found")
+                self.get_logger().warn("Hand position not found.")
 
             
         else:
@@ -123,7 +126,19 @@ class BallInHandNode(Node):
         self.ball_marker.header.stamp  = self.now().to_msg()
         self.ball_marker.pose.position = Point_from_p(self.p)
         self.pub.publish(self.marker_array)
-
+    
+    def get_hand_position(self):
+        try:
+            transform = self.tf_buffer.lookup_transform("world", "l_hand", rclpy.time.Time())
+            return np.array([
+                transform.transform.translation.x,
+                transform.transform.translation.y,
+                transform.transform.translation.z
+            ])
+        except LookupException:
+            self.get_logger().warn("Transform from 'world' to 'l_hand' not found.")
+            return None
+        
 
 def main(args=None):
     rclpy.init(args=args)
