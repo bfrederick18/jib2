@@ -39,19 +39,16 @@ class DemoNode(Node):
     def __init__(self, name, rate):
         super().__init__(name)
 
-        # ROS2 setup
         self.broadcaster = TransformBroadcaster(self)
         self.pub = self.create_publisher(JointState, '/joint_states', 10)
         self.get_logger().info("Waiting for a /joint_states subscriber...")
         while not self.count_subscribers('/joint_states'):
             pass
 
-        # Timing setup
         self.dt = 1.0 / float(rate)
         self.t = 0.0
         self.start = self.get_clock().now() + Duration(seconds=self.dt)
 
-        # Initialize pelvis motion parameters
         self.X_PELVIS = 0.0
         self.Y_PELVIS = 0.5
         self.Z_PELVIS_TOP = 0.85
@@ -59,25 +56,23 @@ class DemoNode(Node):
         self.z_pelvis_mid = (self.Z_PELVIS_TOP + self.Z_PELVIS_LOW) / 2
         self.z_pelvis_A = (self.Z_PELVIS_TOP - self.Z_PELVIS_LOW) / 2
 
-        # Initialize kinematic chain for the left leg
+        # Correct joint order for KinematicChain
         self.chain_left_leg = KinematicChain(self, 'pelvis', 'l_foot', [jointnames[i] for i in [2, 0, 1, 3, 5, 4]])
 
-        # Joint positions and velocities
         self.q = np.zeros(len(jointnames))
         self.qdot = np.zeros(len(jointnames))
 
-        # Initial foot position
-        (ptip, Rtip, _, _) = self.chain_left_leg.fkin(self.q[0:6]) 
-        self.pd = ptip + pxyz(self.X_PELVIS, self.Y_PELVIS, self.Z_PELVIS_TOP)
+        # Forward kinematics with correct joint order
+        (ptip, Rtip, _, _) = self.chain_left_leg.fkin([self.q[i] for i in [2, 0, 1, 3, 5, 4]])
+        self.p_foot_l_0 = ptip
+        self.pd = self.p_foot_l_0 + pxyz(self.X_PELVIS, self.Y_PELVIS, self.Z_PELVIS_TOP)
 
-        # Foot transform
         self.Td = T_from_Rp(Reye(), self.pd)
 
-        # Controller gains
         self.K_p = 10.0
+        self.K_s = 10.0
         self.gamma = 0.1
 
-        # Timer for periodic updates
         self.create_timer(self.dt, self.update)
         self.get_logger().info(f"Running with dt of {self.dt} seconds ({rate}Hz)")
 
@@ -89,13 +84,13 @@ class DemoNode(Node):
         """Control loop for squatting motion."""
         self.t += self.dt
 
-        # Target pelvis position
         z_pelvis = self.z_pelvis_mid + self.z_pelvis_A * cos(self.t)
         p_pelvis = pxyz(self.X_PELVIS, self.Y_PELVIS, z_pelvis)
         R_pelvis = Reye()
         T_pelvis = T_from_Rp(R_pelvis, p_pelvis)
+        v_z_pelvis = -self.z_pelvis_A * sin(self.t)
+        v_pelvis = np.array([0.0, 0.0, v_z_pelvis])
 
-        # Broadcast pelvis transform
         trans = TransformStamped()
         trans.header.stamp = self.now().to_msg()
         trans.header.frame_id = 'world'
@@ -103,41 +98,35 @@ class DemoNode(Node):
         trans.transform = Transform_from_T(T_pelvis)
         self.broadcaster.sendTransform(trans)
 
-        # Target foot position and velocity
-        z_foot = self.z_pelvis_mid - self.z_pelvis_A * cos(self.t)
-        self.pd = pxyz(self.X_PELVIS, self.Y_PELVIS, z_foot)
-        vd = np.array([0.0, 0.0, 0.0])
-
         Td = np.linalg.inv(T_pelvis) @ self.Td
         self.pd = [i[3] for i in Td[0:3]]
+        vd_foot = -v_pelvis
+        wd_foot = np.zeros(3)
 
-        # Perform forward kinematics
-        (ptip, Rtip, Jv, Jw) = self.chain_left_leg.fkin(self.q[0:6])
+        # Forward kinematics with correct joint order
+        (ptip, Rtip, Jv, Jw) = self.chain_left_leg.fkin([self.q[i] for i in [2, 0, 1, 3, 5, 4]])
 
-        # Compute position error
         err_pos = self.pd - ptip
+        err_rot = eR(Reye(), Rtip)
 
-        # Form full error vector (position only, no orientation control)
-        err = np.concatenate((err_pos, np.zeros(3)))
-
-        # Combine Jacobians
+        err = np.concatenate((err_pos, err_rot))
         J = np.vstack((Jv, Jw))
 
-        # Weighted pseudoinverse of the Jacobian
         weight_mat = self.gamma**2 * np.eye(6)
         Jwinv = np.linalg.pinv(J.T @ J + weight_mat) @ J.T
 
-        # Compute nominal secondary task velocities
-        q0 = np.zeros(6)  # Nominal joint positions
-        qsdot = -10 * (self.q[0:6] - q0)
+        q_nominal = np.array([0.0, 0.0, 0.0, (pi / 2), 0.0, 0.0])
+        qsdot = -self.K_s * (self.q[0:6] - q_nominal)
 
-        # Compute joint velocities
-        self.qdot[0:6] = Jwinv @ (np.concatenate((vd, np.zeros(3))) + self.K_p * err) #+ np.eye(6) - Jwinv @ J) @ qsdot
+        # Update joint velocities using correct joint order
+        self.qdot[0:6] = (
+            Jwinv @ (np.concatenate((vd_foot, wd_foot)) + self.K_p * err)
+            + (np.eye(6) - Jwinv @ J) @ qsdot
+        )
+        # Update joint positions using correct joint order
+        for idx, mapped_idx in enumerate([2, 0, 1, 3, 5, 4]):
+            self.q[mapped_idx] += self.qdot[idx] * self.dt
 
-        # Update joint positions
-        self.q[0:6] += self.qdot[0:6] * self.dt
-
-        # Publish joint states
         cmdmsg = JointState()
         cmdmsg.header.stamp = self.now().to_msg()
         cmdmsg.name = jointnames

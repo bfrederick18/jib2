@@ -16,14 +16,35 @@ from hw5code.TransformHelpers   import Point_from_p
 import numpy as np
 
 from hw5code.TransformHelpers   import *
-from hw6code.KinematicChain     import *
+from hw6code.KinematicChain     import KinematicChain
 
+#
+#   Atlas Joint Names
+#
+jointnames = ['l_leg_hpx', 'l_leg_hpy', 'l_leg_hpz',
+              'l_leg_kny',
+              'l_leg_akx', 'l_leg_aky',
+
+              'r_leg_hpx', 'r_leg_hpy', 'r_leg_hpz',
+              'r_leg_kny',
+              'r_leg_akx', 'r_leg_aky',
+
+              'back_bkx', 'back_bky', 'back_bkz',
+              'neck_ry',
+
+              'l_arm_elx', 'l_arm_ely',
+              'l_arm_shx', 'l_arm_shz',
+              'l_arm_wrx', 'l_arm_wry', 'l_arm_wry2',
+
+              'r_arm_elx', 'r_arm_ely',
+              'r_arm_shx', 'r_arm_shz',
+              'r_arm_wrx', 'r_arm_wry', 'r_arm_wry2']
 
 class BallInHandNode(Node):
     def __init__(self, name, rate):
         super().__init__(name)
 
-        # self.chain = KinematicChain(self, 'torso', 'l_hand', [jointnames[i] for i in [0, 1, 2, 3, 4, 5, 6]])
+        self.chain = KinematicChain(self, 'torso', 'l_hand', [jointnames[i] for i in [16, 17, 18, 19, 20, 21, 22]])
 
         # Set up the publisher for the ball visualization marker
         quality = QoSProfile(durability=DurabilityPolicy.TRANSIENT_LOCAL, depth=1)
