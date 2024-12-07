@@ -103,14 +103,6 @@ class DemoNode(Node):
             self.p[2] = self.radius + (self.radius - self.p[2])
             self.v[2] *= -1.0
             self.v[0] *= 0.0
-        
-        """
-        hand_position = np.array([0.0, 0.0, 1.5])
-        if np.linalg.norm(self.p - hand_position) < self.radius:
-            self.p = hand_position
-            self.v = np.array([0.0, 0.0, -5.0])
-        """
-        
 
         # Update the ID number to create a new ball and leave the
         # previous balls where they are.

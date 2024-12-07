@@ -5,33 +5,25 @@ from the hand by setting the 'attached' flag to False. The ball will then remain
 """
 
 import rclpy
-from rclpy.node import Node
-from rclpy.qos import QoSProfile, DurabilityPolicy
-from geometry_msgs.msg import Point, Vector3, Quaternion
-from std_msgs.msg import ColorRGBA
-from visualization_msgs.msg import Marker, MarkerArray
-from tf2_ros import Buffer, TransformListener, LookupException
-from hw5code.TransformHelpers import Point_from_p
-import numpy as np
-
-import rclpy
-import numpy as np
-
 from rclpy.node                 import Node
 from rclpy.qos                  import QoSProfile, DurabilityPolicy
 from rclpy.time                 import Duration
 from geometry_msgs.msg          import Point, Vector3, Quaternion
 from std_msgs.msg               import ColorRGBA
-from visualization_msgs.msg     import Marker
-from visualization_msgs.msg     import MarkerArray
+from visualization_msgs.msg     import Marker, MarkerArray
+from tf2_ros                    import Buffer, TransformListener, LookupException
+from hw5code.TransformHelpers   import Point_from_p
+import numpy as np
 
 from hw5code.TransformHelpers   import *
+from hw6code.KinematicChain     import *
 
 
 class BallInHandNode(Node):
     def __init__(self, name, rate):
         super().__init__(name)
 
+        # self.chain = KinematicChain(node, '' "l_hand")
         # Set up the publisher for the ball visualization marker
         quality = QoSProfile(durability=DurabilityPolicy.TRANSIENT_LOCAL, depth=1)
         self.pub = self.create_publisher(MarkerArray, '/visualization_marker_array', quality)
@@ -41,24 +33,39 @@ class BallInHandNode(Node):
         self.tf_listener = TransformListener(self.tf_buffer, self)
         # Initialize the ball's marker properties
         self.radius = 0.1
+
+        self.p = np.array([0.0, 0.0, self.radius])
+        self.v = np.array([0.0, 0.0,  0.0       ])
+        self.a = np.array([0.0, 0.0, -9.81      ])
+
         diam = 2 * self.radius
         self.ball_marker = Marker()
         self.ball_marker.header.frame_id = "world"
+        self.ball_marker.header.stamp     = self.get_clock().now().to_msg()
         self.ball_marker.action = Marker.ADD
         self.ball_marker.ns = "ball"
         self.ball_marker.id = 1
         self.ball_marker.type = Marker.SPHERE
+        self.ball_marker.pose.orientation = Quaternion()
+        self.ball_marker.pose.position    = Point_from_p(self.p)
         self.ball_marker.scale = Vector3(x=diam, y=diam, z=diam)
         self.ball_marker.color = ColorRGBA(r=1.0, g=0.0, b=0.0, a=0.8)
 
+        self.marker_array = MarkerArray(markers=[self.ball_marker])
+
         # Initialize ball and hand position
-        self.ball_position = np.array([0.0, 0.0, 1.0])  # Initial guess
         self.inhand = True  # Ball starts attached to the hand
 
         # Timer for updating the ball's position
         self.dt = 1.0 / float(rate)
+        self.t  = -self.dt
+        self.start = self.get_clock().now() + Duration(seconds=self.dt)
         self.create_timer(self.dt, self.update)
         self.get_logger().info("BallInHandNode running at {} Hz".format(rate))
+
+    # Return the current time (in ROS format).
+    def now(self):
+        return self.start + Duration(seconds=self.t)
 
     def get_hand_position(self):
         """Get the position of the hand relative to the world frame."""
@@ -76,17 +83,25 @@ class BallInHandNode(Node):
 
     def update(self):
         """Update the ball's position to follow the hand."""
+        # To avoid any time jitter enforce a constant time step and
+        # integrate to get the current time.
+        self.t += self.dt
+
+        print(self.t)
+
+        if self.t > 2.0:
+            self.inhand = False
+
         if self.inhand:
             hand_position = self.get_hand_position()
             if hand_position is not None:
                 # Ball follows the hand's position
-                self.ball_position = hand_position
+                self.p = hand_position
             else:
                 print("Hand position not found")
+
+            
         else:
-            # To avoid any time jitter enforce a constant time step and
-            # integrate to get the current time.
-            self.t += self.dt
 
             k = 0.05
             v_mag = np.linalg.norm(self.v)
@@ -104,13 +119,10 @@ class BallInHandNode(Node):
                 self.v[2] *= -1.0
                 self.v[0] *= 0.0
 
-        # Update the marker message
-        self.ball_marker.header.stamp = self.get_clock().now().to_msg()
-        self.ball_marker.pose.position = Point_from_p(self.ball_position)
-
-        # Publish the updated marker
-        marker_array = MarkerArray(markers=[self.ball_marker])
-        self.pub.publish(marker_array)
+        # Update the message and publish.
+        self.ball_marker.header.stamp  = self.now().to_msg()
+        self.ball_marker.pose.position = Point_from_p(self.p)
+        self.pub.publish(self.marker_array)
 
 
 def main(args=None):
