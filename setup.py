@@ -26,7 +26,7 @@ setup(
             'squat = jib2.squat:main',
             'balldrop = jib2.balldrop:main',
             'ballinhand = jib2.ballinhand:main',
-            'demo1 = jib2.demo1:main',
+            'squatdrop = jib2.squatdrop:main',
             'throw = jib2.throw:main'
         ],
     },

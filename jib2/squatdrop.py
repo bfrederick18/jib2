@@ -1,6 +1,6 @@
-'''demo1.py
+'''squatdrop.py
 
-   Node:      /demo1
+   Node:      /squatdrop
    Publish:   /joint_states             sensor_msgs.msg.JointState
    Broadcast: 'pelvis' w.r.t. 'world'   geometry_msgs.msg.TransformStamped
 
@@ -247,6 +247,7 @@ class DemoNode(Node):
         cmdmsg.velocity = self.qdot.tolist()
         self.pub_atlas.publish(cmdmsg)
 
+
         ptip_lhand, Rtip_lhand, Jv_lhand, Jw_lhand = self.chain_lhand.fkin(
             [self.q[i] for i in JOINT_ORDERS['l_hand']]
         )
@@ -285,7 +286,7 @@ class DemoNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = DemoNode('demo1', 100)
+    node = DemoNode('squatdrop', 100)
     rclpy.spin(node)
     node.shutdown()
     rclpy.shutdown()

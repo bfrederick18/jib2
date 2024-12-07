@@ -1,6 +1,6 @@
-"""Launch the pirouetting and waving demo
+"""Launch the squatting and ball dropping demo
 
-   ros2 launch jib2 demo1.launch.py
+   ros2 launch jib2 squatdrop.launch.py
 
    This should start
      1) RVIZ, ready to view the robot and the ball
@@ -57,10 +57,10 @@ def generate_launch_description():
         arguments  = ['-d', rvizcfg],
         on_exit    = Shutdown())
     
-    node_demo1 = Node(
-        name       = 'demo1',
+    node_squatdrop = Node(
+        name       = 'squatdrop',
         package    = 'jib2',
-        executable = 'demo1',
+        executable = 'squatdrop',
         output     = 'screen',
         on_exit    = Shutdown())
 
@@ -71,5 +71,5 @@ def generate_launch_description():
         # Start the robot_state_publisher, RVIZ, and the demo.
         node_robot_state_publisher,
         node_rviz,
-        node_demo1
+        node_squatdrop
     ])
