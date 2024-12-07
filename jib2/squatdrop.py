@@ -23,77 +23,7 @@ from visualization_msgs.msg     import Marker, MarkerArray
 from hw5code.TransformHelpers     import *
 from hw6code.KinematicChain       import KinematicChain
 
-
-JOINT_NAMES = ['l_leg_hpx', 'l_leg_hpy', 'l_leg_hpz',
-              'l_leg_kny',
-              'l_leg_akx', 'l_leg_aky',
-
-              'r_leg_hpx', 'r_leg_hpy', 'r_leg_hpz',
-              'r_leg_kny',
-              'r_leg_akx', 'r_leg_aky',
-
-              'back_bkx', 'back_bky', 'back_bkz',
-              'neck_ry',
-
-              'l_arm_elx', 'l_arm_ely',
-              'l_arm_shx', 'l_arm_shz',
-              'l_arm_wrx', 'l_arm_wry', 'l_arm_wry2',
-
-              'r_arm_elx', 'r_arm_ely',
-              'r_arm_shx', 'r_arm_shz',
-              'r_arm_wrx', 'r_arm_wry', 'r_arm_wry2']
-
-
-JOINT_ORDERS = {
-    'l_leg': [
-        JOINT_NAMES.index('l_leg_hpz'), 
-        JOINT_NAMES.index('l_leg_hpx'), 
-        JOINT_NAMES.index('l_leg_hpy'), 
-        JOINT_NAMES.index('l_leg_kny'), 
-        JOINT_NAMES.index('l_leg_aky'), 
-        JOINT_NAMES.index('l_leg_akx')
-    ], 
-
-    'r_leg': [
-        JOINT_NAMES.index('r_leg_hpz'), 
-        JOINT_NAMES.index('r_leg_hpx'), 
-        JOINT_NAMES.index('r_leg_hpy'), 
-        JOINT_NAMES.index('r_leg_kny'), 
-        JOINT_NAMES.index('r_leg_aky'), 
-        JOINT_NAMES.index('r_leg_akx')
-    ], 
-
-    'head': [
-        JOINT_NAMES.index('back_bkz'), 
-        JOINT_NAMES.index('back_bky'), 
-        JOINT_NAMES.index('back_bkx'), 
-        JOINT_NAMES.index('neck_ry')
-    ], 
-
-    'l_hand': [
-        JOINT_NAMES.index('back_bkz'), 
-        JOINT_NAMES.index('back_bky'), 
-        JOINT_NAMES.index('back_bkx'), 
-        JOINT_NAMES.index('l_arm_shz'), 
-        JOINT_NAMES.index('l_arm_shx'), 
-        JOINT_NAMES.index('l_arm_ely'), 
-        JOINT_NAMES.index('l_arm_elx'), 
-        JOINT_NAMES.index('l_arm_wry'), 
-        JOINT_NAMES.index('l_arm_wrx'), 
-        JOINT_NAMES.index('l_arm_wry2')],
-
-    'r_hand': [
-        JOINT_NAMES.index('back_bkz'), 
-        JOINT_NAMES.index('back_bky'), 
-        JOINT_NAMES.index('back_bkx'), 
-        JOINT_NAMES.index('r_arm_shz'), 
-        JOINT_NAMES.index('r_arm_shx'), 
-        JOINT_NAMES.index('r_arm_ely'), 
-        JOINT_NAMES.index('r_arm_elx'), 
-        JOINT_NAMES.index('r_arm_wry'), 
-        JOINT_NAMES.index('r_arm_wrx'), 
-        JOINT_NAMES.index('r_arm_wry2')]
-}
+import jib2.constants as c
 
 
 class DemoNode(Node):
@@ -119,27 +49,27 @@ class DemoNode(Node):
         self.X_PELVIS = 0.0
         self.Y_PELVIS = 0.5
         self.Z_PELVIS_TOP = 0.85
-        self.Z_PELVIS_LOW = 0.55
+        self.Z_PELVIS_LOW = 0.35
         self.z_pelvis_mid = (self.Z_PELVIS_TOP + self.Z_PELVIS_LOW) / 2
         self.z_pelvis_A = (self.Z_PELVIS_TOP - self.Z_PELVIS_LOW) / 2
 
-        self.chain_lfoot = KinematicChain(self, 'pelvis', 'l_foot', [JOINT_NAMES[i] for i in JOINT_ORDERS['l_leg']])
-        self.chain_rfoot = KinematicChain(self, 'pelvis', 'r_foot', [JOINT_NAMES[i] for i in JOINT_ORDERS['r_leg']])
-        self.chain_head = KinematicChain(self, 'pelvis', 'head', [JOINT_NAMES[i] for i in JOINT_ORDERS['head']])
-        self.chain_lhand = KinematicChain(self, 'pelvis', 'l_hand', [JOINT_NAMES[i] for i in JOINT_ORDERS['l_hand']])
-        self.chain_rhand = KinematicChain(self, 'pelvis', 'r_hand', [JOINT_NAMES[i] for i in JOINT_ORDERS['r_hand']])
+        self.chain_lfoot = KinematicChain(self, 'pelvis', 'l_foot', c.joint_builder(c.JOINT_NAMES, 'l_leg'))
+        self.chain_rfoot = KinematicChain(self, 'pelvis', 'r_foot', c.joint_builder(c.JOINT_NAMES, 'r_leg'))
+        self.chain_head = KinematicChain(self, 'pelvis', 'head', c.joint_builder(c.JOINT_NAMES, 'head'))
+        self.chain_lhand = KinematicChain(self, 'pelvis', 'l_hand', c.joint_builder(c.JOINT_NAMES, 'l_arm'))
+        self.chain_rhand = KinematicChain(self, 'pelvis', 'r_hand', c.joint_builder(c.JOINT_NAMES, 'r_arm'))
 
-        self.q = np.zeros(len(JOINT_NAMES))
-        self.qdot = np.zeros(len(JOINT_NAMES))
+        self.q = np.zeros(len(c.JOINT_NAMES))
+        self.qdot = np.zeros(len(c.JOINT_NAMES))
 
-        ptip0_lfoot, _, _, _ = self.chain_lfoot.fkin([self.q[i] for i in JOINT_ORDERS['l_leg']])
-        ptip0_rfoot, _, _, _ = self.chain_rfoot.fkin([self.q[i] for i in JOINT_ORDERS['r_leg']])
+        p_lfoot_pelvis_pelvis, _, _, _ = self.chain_lfoot.fkin(c.joint_builder(self.q, 'l_leg'))
+        p_rfoot_pelvis_pelvis, _, _, _ = self.chain_rfoot.fkin(c.joint_builder(self.q, 'r_leg'))
 
-        self.pd_lfoot = ptip0_lfoot + pxyz(self.X_PELVIS, self.Y_PELVIS, self.Z_PELVIS_TOP)
-        self.pd_rfoot = ptip0_rfoot + pxyz(self.X_PELVIS, self.Y_PELVIS, self.Z_PELVIS_TOP)
+        self.p_lfoot_pelvis_world = p_lfoot_pelvis_pelvis + pxyz(self.X_PELVIS, self.Y_PELVIS, self.Z_PELVIS_TOP)
+        self.p_rfoot_pelvis_world = p_rfoot_pelvis_pelvis + pxyz(self.X_PELVIS, self.Y_PELVIS, self.Z_PELVIS_TOP)
 
-        self.Td_lfoot = T_from_Rp(Reye(), self.pd_lfoot)
-        self.Td_rfoot = T_from_Rp(Reye(), self.pd_rfoot)
+        self.Td_lfoot_pelvis_world = T_from_Rp(Reye(), self.p_lfoot_pelvis_world)
+        self.Td_rfoot_pelvis_world = T_from_Rp(Reye(), self.p_rfoot_pelvis_world)
 
         self.K_p = 50.0
         self.K_s = 10.0
@@ -148,20 +78,20 @@ class DemoNode(Node):
 
         self.radius_ball = 0.1
 
-        self.p_ball = np.array([0.0, 0.0, self.radius_ball])
-        self.v_ball = np.array([0.0, 0.0,  0.0            ])
-        self.a_ball = np.array([0.0, 0.0, -9.81           ])
+        self.p_ball_world_world = np.array([0.0, 0.0, self.radius_ball])
+        self.v_ball_world_world = np.array([0.0, 0.0,  0.0            ])
+        self.a_ball_world_world = np.array([0.0, 0.0, -9.81           ])
 
         ball_diameter = 2 * self.radius_ball
         self.ball_marker = Marker()
-        self.ball_marker.header.frame_id = "world"
-        self.ball_marker.header.stamp     = self.get_clock().now().to_msg()
+        self.ball_marker.header.frame_id = 'world'
+        self.ball_marker.header.stamp    = self.get_clock().now().to_msg()
         self.ball_marker.action = Marker.ADD
-        self.ball_marker.ns = "ball"
+        self.ball_marker.ns = 'ball'
         self.ball_marker.id = 1
         self.ball_marker.type = Marker.SPHERE
         self.ball_marker.pose.orientation = Quaternion()
-        self.ball_marker.pose.position    = Point_from_p(self.p_ball)
+        self.ball_marker.pose.position    = Point_from_p(self.p_ball_world_world)
         self.ball_marker.scale = Vector3(x=ball_diameter,
                                          y=ball_diameter,
                                          z=ball_diameter)
@@ -169,10 +99,10 @@ class DemoNode(Node):
 
         self.marker_array = MarkerArray(markers=[self.ball_marker])
 
-        self.inhand = True
+        self.ball_inhand = True
 
         self.create_timer(self.dt, self.update)
-        self.get_logger().info(f"Running with dt of {self.dt} seconds ({rate}Hz)")
+        self.get_logger().info(f'Running with dt of {self.dt} seconds ({rate}Hz)')
 
 
     def shutdown(self):
@@ -186,104 +116,99 @@ class DemoNode(Node):
     def update(self):
         self.t += self.dt
 
-        z_pelvis = self.z_pelvis_mid + self.z_pelvis_A * cos(self.t)
-        p_pelvis = pxyz(self.X_PELVIS, self.Y_PELVIS, z_pelvis)
-        R_pelvis = Reye()
-        T_pelvis = T_from_Rp(R_pelvis, p_pelvis)
-        v_z_pelvis = -self.z_pelvis_A * sin(self.t)
-        v_pelvis = np.array([0.0, 0.0, v_z_pelvis])
+        z_pelvis = self.z_pelvis_mid + self.z_pelvis_A * cos(4 * self.t)
+        p_pelvis_world_world = pxyz(self.X_PELVIS, self.Y_PELVIS, z_pelvis)
+        R_pelvis_world_world = Reye()
+        T_pelvis_world_world = T_from_Rp(R_pelvis_world_world, p_pelvis_world_world)
+        v_pelvis_world_world = np.array([0.0, 0.0, -self.z_pelvis_A * sin(self.t)])
 
         trans = TransformStamped()
         trans.header.stamp = self.now().to_msg()
         trans.header.frame_id = 'world'
         trans.child_frame_id = 'pelvis'
-        trans.transform = Transform_from_T(T_pelvis)
+        trans.transform = Transform_from_T(T_pelvis_world_world)
         self.broadcaster.sendTransform(trans)
 
-        Td_lfoot = np.linalg.inv(T_pelvis) @ self.Td_lfoot
-        Td_rfoot = np.linalg.inv(T_pelvis) @ self.Td_rfoot
+        Td_lfoot_pelvis_pelvis = np.linalg.inv(T_pelvis_world_world) @ self.Td_lfoot_pelvis_world
+        Td_rfoot_pelvis_pelvis = np.linalg.inv(T_pelvis_world_world) @ self.Td_rfoot_pelvis_world
 
-        self.pd_lfoot = [i[3] for i in Td_lfoot[0:3]]
-        self.pd_rfoot = [i[3] for i in Td_rfoot[0:3]]
+        self.pd_lfoot_pelvis_world = [i[3] for i in Td_lfoot_pelvis_pelvis[0:3]]
+        self.pd_rfoot_pelvis_world = [i[3] for i in Td_rfoot_pelvis_pelvis[0:3]]
 
-        vd_lfoot = vd_rfoot = -v_pelvis
+        vd_lfoot = vd_rfoot = -v_pelvis_world_world
         wd_lfoot = wd_rfoot = np.zeros(3)
 
-        ptip_lfoot, Rtip_lfoot, Jv_lfoot, Jw_lfoot = self.chain_lfoot.fkin(
-            [self.q[i] for i in JOINT_ORDERS['l_leg']]
-        )
-        ptip_rfoot, Rtip_rfoot, Jv_rfoot, Jw_rfoot = self.chain_rfoot.fkin(
-            [self.q[i] for i in JOINT_ORDERS['r_leg']]
-        )
+        (p_lfoot_pelvis_pelvis, Rtip_lfoot_pelvis_pelvis, 
+         Jv_lfoot_pelvis_pelvis, Jw_lfoot_pelvis_pelvis) = self.chain_lfoot.fkin(
+             c.joint_builder(self.q, 'l_leg'))
+        (p_rfoot_pelvis_pelvis, Rtip_rfoot_pelvis_pelvis, 
+         Jv_rfoot_pelvis_pelvis, Jw_rfoot_pelvis_pelvis) = self.chain_rfoot.fkin(
+             c.joint_builder(self.q, 'r_leg'))
 
-        err_pos_lfoot = self.pd_lfoot - ptip_lfoot
-        err_rot_lfoot = eR(Reye(), Rtip_lfoot)
-        err_pos_rfoot = self.pd_rfoot - ptip_rfoot
-        err_rot_rfoot = eR(Reye(), Rtip_rfoot)
+        err_pos_lfoot = self.pd_lfoot_pelvis_world - p_lfoot_pelvis_pelvis
+        err_rot_lfoot = eR(Reye(), Rtip_lfoot_pelvis_pelvis)
+        err_pos_rfoot = self.pd_rfoot_pelvis_world - p_rfoot_pelvis_pelvis
+        err_rot_rfoot = eR(Reye(), Rtip_rfoot_pelvis_pelvis)
 
         err = np.concatenate((err_pos_lfoot, err_rot_lfoot, err_pos_rfoot, err_rot_rfoot))
         J = np.vstack([
-            np.hstack([Jv_lfoot, np.zeros_like(Jv_rfoot)]),
-            np.hstack([Jw_lfoot, np.zeros_like(Jw_rfoot)]),
-            np.hstack([np.zeros_like(Jv_lfoot), Jv_rfoot]),
-            np.hstack([np.zeros_like(Jw_lfoot), Jw_rfoot])
+            np.hstack([Jv_lfoot_pelvis_pelvis, np.zeros_like(Jv_rfoot_pelvis_pelvis)]),
+            np.hstack([Jw_lfoot_pelvis_pelvis, np.zeros_like(Jw_rfoot_pelvis_pelvis)]),
+            np.hstack([np.zeros_like(Jv_lfoot_pelvis_pelvis), Jv_rfoot_pelvis_pelvis]),
+            np.hstack([np.zeros_like(Jw_lfoot_pelvis_pelvis), Jw_rfoot_pelvis_pelvis])
         ])
 
         weight_mat = self.gamma**2 * np.eye(J.shape[1])
         Jwinv = np.linalg.pinv(J.T @ J + weight_mat) @ J.T
 
-        q_nominal_lfoot = np.array([0.0, 0.0, 0.0, (pi / 2), 0.0, 0.0])
-        q_nominal_rfoot = np.array([0.0, 0.0, 0.0, (pi / 2), 0.0, 0.0])
+        q_nominal_lfoot = np.array([0.0, 0.0, 0.0, (3 * pi / 4), 0.0, 0.0])
+        q_nominal_rfoot = np.array([0.0, 0.0, 0.0, (3 * pi / 4), 0.0, 0.0])
         q_nominal = np.concatenate((q_nominal_lfoot, q_nominal_rfoot))
-        qsdot = -self.K_s * (self.q[np.r_[JOINT_ORDERS['l_leg'], JOINT_ORDERS['r_leg']]] - q_nominal)
+        qsdot = -self.K_s * (self.q[np.r_[c.JOINT_ORDERS['l_leg'], c.JOINT_ORDERS['r_leg']]] - q_nominal)
 
         qdot = Jwinv @ (np.concatenate((vd_lfoot, wd_lfoot, vd_rfoot, wd_rfoot)) + self.K_p * err) + \
             (np.eye(J.shape[1]) - Jwinv @ J) @ qsdot
 
-        for i, mapped_i in enumerate(np.r_[JOINT_ORDERS['l_leg'], JOINT_ORDERS['r_leg']]):
+        for i, mapped_i in enumerate(np.r_[c.JOINT_ORDERS['l_leg'], c.JOINT_ORDERS['r_leg']]):
             self.q[mapped_i] += qdot[i] * self.dt
+
+      
+
+        p_lhand_pelvis_pelvis, _, _, _ = self.chain_lhand.fkin(c.joint_builder(self.q, 'l_arm'))
+
+        if self.t > 2.0:
+            self.ball_inhand = False
+
+        p_lhand_world_world = p_lhand_pelvis_pelvis + p_pelvis_world_world
+
+        if self.ball_inhand:
+            if p_lhand_world_world is not None:
+                self.p_ball_world_world = p_lhand_world_world 
+            else:
+                print('Hand position not found')
+ 
+        else:
+            a_drag_ball = 0.05 * np.linalg.norm(self.v_ball_world_world) * self.v_ball_world_world
+            self.a_ball_world_world = np.array([0.0, 0.0, -9.81]) - a_drag_ball
+            
+            self.v_ball_world_world += self.dt * self.a_ball_world_world
+            self.p_ball_world_world += self.dt * self.v_ball_world_world
+
+            if self.p_ball_world_world[2] < self.radius_ball:
+                self.p_ball_world_world[2] = self.radius_ball + (self.radius_ball - self.p_ball_world_world[2])
+                self.v_ball_world_world[2] *= -1.0
+                self.v_ball_world_world[0] *= 0.0
+
 
         cmdmsg = JointState()
         cmdmsg.header.stamp = self.now().to_msg()
-        cmdmsg.name = JOINT_NAMES
+        cmdmsg.name = c.JOINT_NAMES
         cmdmsg.position = self.q.tolist()
         cmdmsg.velocity = self.qdot.tolist()
         self.pub_atlas.publish(cmdmsg)
 
-
-        ptip_lhand, Rtip_lhand, Jv_lhand, Jw_lhand = self.chain_lhand.fkin(
-            [self.q[i] for i in JOINT_ORDERS['l_hand']]
-        )
-
-        if self.t > 2.0:
-            self.inhand = False
-
-        hand_position = ptip_lhand + p_pelvis
-
-        if self.inhand:
-            if hand_position is not None:
-                self.p_ball = hand_position
-            else:
-                print("Hand position not found")
- 
-        else:
-
-            k = 0.05
-            v_mag = np.linalg.norm(self.v_ball)
-            drag = -k * v_mag * self.v_ball
-
-            self.a_ball = np.array([0.0, 0.0, -9.81]) + drag
-            
-            self.v_ball += self.dt * self.a_ball
-            self.p_ball += self.dt * self.v_ball
-
-            if self.p_ball[2] < self.radius_ball:
-                self.p_ball[2] = self.radius_ball + (self.radius_ball - self.p_ball[2])
-                self.v_ball[2] *= -1.0
-                self.v_ball[0] *= 0.0
-
         self.ball_marker.header.stamp  = self.now().to_msg()
-        self.ball_marker.pose.position = Point_from_p(self.p_ball)
+        self.ball_marker.pose.position = Point_from_p(self.p_ball_world_world)
         self.pub_ball.publish(self.marker_array)
 
 
