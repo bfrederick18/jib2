@@ -9,10 +9,8 @@ from sensor_msgs.msg import JointState
 from hw5code.TransformHelpers import *
 from hw6code.KinematicChain import KinematicChain
 
-#
-#   Atlas Joint Names
-#
-jointnames = ['l_leg_hpx', 'l_leg_hpy', 'l_leg_hpz',
+
+JOINT_NAMES = ['l_leg_hpx', 'l_leg_hpy', 'l_leg_hpz',
               'l_leg_kny',
               'l_leg_akx', 'l_leg_aky',
 
@@ -32,9 +30,58 @@ jointnames = ['l_leg_hpx', 'l_leg_hpy', 'l_leg_hpz',
               'r_arm_wrx', 'r_arm_wry', 'r_arm_wry2']
 
 
-#
-#   Demo Node Class
-#
+JOINT_ORDERS = {
+    'l_leg': [
+        JOINT_NAMES.index('l_leg_hpz'), 
+        JOINT_NAMES.index('l_leg_hpx'), 
+        JOINT_NAMES.index('l_leg_hpy'), 
+        JOINT_NAMES.index('l_leg_kny'), 
+        JOINT_NAMES.index('l_leg_aky'), 
+        JOINT_NAMES.index('l_leg_akx')
+    ], 
+
+    'r_leg': [
+        JOINT_NAMES.index('r_leg_hpz'), 
+        JOINT_NAMES.index('r_leg_hpx'), 
+        JOINT_NAMES.index('r_leg_hpy'), 
+        JOINT_NAMES.index('r_leg_kny'), 
+        JOINT_NAMES.index('r_leg_aky'), 
+        JOINT_NAMES.index('r_leg_akx')
+    ], 
+
+    'head': [
+        JOINT_NAMES.index('back_bkz'), 
+        JOINT_NAMES.index('back_bky'), 
+        JOINT_NAMES.index('back_bkx'), 
+        JOINT_NAMES.index('neck_ry')
+    ], 
+
+    'l_hand': [
+        JOINT_NAMES.index('back_bkz'), 
+        JOINT_NAMES.index('back_bky'), 
+        JOINT_NAMES.index('back_bkx'), 
+        JOINT_NAMES.index('l_arm_shz'), 
+        JOINT_NAMES.index('l_arm_shx'), 
+        JOINT_NAMES.index('l_arm_ely'), 
+        JOINT_NAMES.index('l_arm_elx'), 
+        JOINT_NAMES.index('l_arm_wry'), 
+        JOINT_NAMES.index('l_arm_wrx'), 
+        JOINT_NAMES.index('l_arm_wry2')],
+
+    'r_hand': [
+        JOINT_NAMES.index('back_bkz'), 
+        JOINT_NAMES.index('back_bky'), 
+        JOINT_NAMES.index('back_bkx'), 
+        JOINT_NAMES.index('r_arm_shz'), 
+        JOINT_NAMES.index('r_arm_shx'), 
+        JOINT_NAMES.index('r_arm_ely'), 
+        JOINT_NAMES.index('r_arm_elx'), 
+        JOINT_NAMES.index('r_arm_wry'), 
+        JOINT_NAMES.index('r_arm_wrx'), 
+        JOINT_NAMES.index('r_arm_wry2')]
+}
+
+
 class DemoNode(Node):
     def __init__(self, name, rate):
         super().__init__(name)
@@ -57,10 +104,14 @@ class DemoNode(Node):
         self.z_pelvis_A = (self.Z_PELVIS_TOP - self.Z_PELVIS_LOW) / 2
 
         # Correct joint order for KinematicChain
-        self.chain_left_leg = KinematicChain(self, 'pelvis', 'l_foot', [jointnames[i] for i in [2, 0, 1, 3, 5, 4]])
+        self.chain_left_leg = KinematicChain(self, 'pelvis', 'l_foot', [JOINT_NAMES[i] for i in JOINT_ORDERS['l_leg']])
+        self.chain_right_leg = KinematicChain(self, 'pelvis', 'r_foot', [JOINT_NAMES[i] for i in JOINT_ORDERS['r_leg']])
+        self.chain_head = KinematicChain(self, 'pelvis', 'head', [JOINT_NAMES[i] for i in JOINT_ORDERS['head']])
+        self.chain_left_hand = KinematicChain(self, 'pelvis', 'l_hand', [JOINT_NAMES[i] for i in JOINT_ORDERS['l_hand']])
+        self.chain_right_hand = KinematicChain(self, 'pelvis', 'r_hand', [JOINT_NAMES[i] for i in JOINT_ORDERS['r_hand']])
 
-        self.q = np.zeros(len(jointnames))
-        self.qdot = np.zeros(len(jointnames))
+        self.q = np.zeros(len(JOINT_NAMES))
+        self.qdot = np.zeros(len(JOINT_NAMES))
 
         # Forward kinematics with correct joint order
         (ptip, Rtip, _, _) = self.chain_left_leg.fkin([self.q[i] for i in [2, 0, 1, 3, 5, 4]])
@@ -129,7 +180,7 @@ class DemoNode(Node):
 
         cmdmsg = JointState()
         cmdmsg.header.stamp = self.now().to_msg()
-        cmdmsg.name = jointnames
+        cmdmsg.name = JOINT_NAMES
         cmdmsg.position = self.q.tolist()
         cmdmsg.velocity = self.qdot.tolist()
         self.pub.publish(cmdmsg)
