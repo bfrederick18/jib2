@@ -12,10 +12,13 @@ import numpy as np
 from math import pi, sin, cos, acos, atan2, sqrt, fmod, exp
 
 from rclpy.node                 import Node
+from rclpy.qos                  import QoSProfile, DurabilityPolicy
 from rclpy.time                 import Duration
-from tf2_ros                    import TransformBroadcaster
+from tf2_ros                    import TransformBroadcaster, Buffer, TransformListener, LookupException
 from geometry_msgs.msg          import TransformStamped
 from sensor_msgs.msg            import JointState
+from std_msgs.msg               import ColorRGBA
+from visualization_msgs.msg     import Marker, MarkerArray
 
 from hw5code.TransformHelpers     import *
 from hw6code.KinematicChain       import KinematicChain
@@ -98,13 +101,19 @@ class DemoNode(Node):
         super().__init__(name)
 
         self.broadcaster = TransformBroadcaster(self)
-        self.pub = self.create_publisher(JointState, '/joint_states', 10)
+        self.pub_atlas = self.create_publisher(JointState, '/joint_states', 10)
         self.get_logger().info('Waiting for a /joint_states subscriber...')
         while not self.count_subscribers('/joint_states'):
             pass
 
+        quality = QoSProfile(durability=DurabilityPolicy.TRANSIENT_LOCAL, depth=1)
+        self.pub_ball = self.create_publisher(MarkerArray, '/visualization_marker_array', quality)
+
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
         self.dt = 1.0 / float(rate)
-        self.t = 0.0
+        self.t = -self.dt
         self.start = self.get_clock().now() + Duration(seconds=self.dt)
 
         self.X_PELVIS = 0.0
@@ -139,6 +148,29 @@ class DemoNode(Node):
         self.create_timer(self.dt, self.update)
         self.get_logger().info(f"Running with dt of {self.dt} seconds ({rate}Hz)")
 
+        self.radius = 0.1
+
+        self.p = np.array([0.0, 0.0, self.radius])
+        self.v = np.array([0.0, 0.0,  0.0       ])
+        self.a = np.array([0.0, 0.0, -9.81      ])
+
+        diam = 2 * self.radius
+        self.ball_marker = Marker()
+        self.ball_marker.header.frame_id = "world"
+        self.ball_marker.header.stamp     = self.get_clock().now().to_msg()
+        self.ball_marker.action = Marker.ADD
+        self.ball_marker.ns = "ball"
+        self.ball_marker.id = 1
+        self.ball_marker.type = Marker.SPHERE
+        self.ball_marker.pose.orientation = Quaternion()
+        self.ball_marker.pose.position    = Point_from_p(self.p)
+        self.ball_marker.scale = Vector3(x=diam, y=diam, z=diam)
+        self.ball_marker.color = ColorRGBA(r=1.0, g=0.0, b=0.0, a=0.8)
+
+        self.marker_array = MarkerArray(markers=[self.ball_marker])
+
+        self.inhand = True
+
 
     def shutdown(self):
         self.destroy_node()
@@ -146,7 +178,7 @@ class DemoNode(Node):
 
     def now(self):
         return self.start + Duration(seconds=self.t)
-
+    
 
     def update(self):
         self.t += self.dt
@@ -213,12 +245,47 @@ class DemoNode(Node):
         cmdmsg.name = JOINT_NAMES
         cmdmsg.position = self.q.tolist()
         cmdmsg.velocity = self.qdot.tolist()
-        self.pub.publish(cmdmsg)
+        self.pub_atlas.publish(cmdmsg)
+
+        ptip_lhand, Rtip_lhand, Jv_lhand, Jw_lhand = self.chain_lhand.fkin(
+            [self.q[i] for i in JOINT_ORDERS['l_hand']]
+        )
+
+        if self.t > 2.0:
+            self.inhand = False
+
+        hand_position = ptip_lhand + p_pelvis
+
+        if self.inhand:
+            if hand_position is not None:
+                self.p = hand_position
+            else:
+                print("Hand position not found")
+ 
+        else:
+
+            k = 0.05
+            v_mag = np.linalg.norm(self.v)
+            drag = -k * v_mag * self.v
+
+            self.a = np.array([0.0, 0.0, -9.81]) + drag
+            
+            self.v += self.dt * self.a
+            self.p += self.dt * self.v
+
+            if self.p[2] < self.radius:
+                self.p[2] = self.radius + (self.radius - self.p[2])
+                self.v[2] *= -1.0
+                self.v[0] *= 0.0
+
+        self.ball_marker.header.stamp  = self.now().to_msg()
+        self.ball_marker.pose.position = Point_from_p(self.p)
+        self.pub_ball.publish(self.marker_array)
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = DemoNode('squat', 100)
+    node = DemoNode('demo1', 100)
     rclpy.spin(node)
     node.shutdown()
     rclpy.shutdown()

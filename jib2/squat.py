@@ -106,7 +106,7 @@ class SquatNode(Node):
             pass
 
         self.dt = 1.0 / float(rate)
-        self.t = 0.0
+        self.t = -self.dt
         self.start = self.get_clock().now() + Duration(seconds=self.dt)
 
         self.X_PELVIS = 0.0
