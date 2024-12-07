@@ -145,16 +145,14 @@ class DemoNode(Node):
         self.K_s = 10.0
         self.gamma = 0.1
 
-        self.create_timer(self.dt, self.update)
-        self.get_logger().info(f"Running with dt of {self.dt} seconds ({rate}Hz)")
 
-        self.radius = 0.1
+        self.radius_ball = 0.1
 
-        self.p = np.array([0.0, 0.0, self.radius])
-        self.v = np.array([0.0, 0.0,  0.0       ])
-        self.a = np.array([0.0, 0.0, -9.81      ])
+        self.p_ball = np.array([0.0, 0.0, self.radius_ball])
+        self.v_ball = np.array([0.0, 0.0,  0.0            ])
+        self.a_ball = np.array([0.0, 0.0, -9.81           ])
 
-        diam = 2 * self.radius
+        ball_diameter = 2 * self.radius_ball
         self.ball_marker = Marker()
         self.ball_marker.header.frame_id = "world"
         self.ball_marker.header.stamp     = self.get_clock().now().to_msg()
@@ -163,13 +161,18 @@ class DemoNode(Node):
         self.ball_marker.id = 1
         self.ball_marker.type = Marker.SPHERE
         self.ball_marker.pose.orientation = Quaternion()
-        self.ball_marker.pose.position    = Point_from_p(self.p)
-        self.ball_marker.scale = Vector3(x=diam, y=diam, z=diam)
+        self.ball_marker.pose.position    = Point_from_p(self.p_ball)
+        self.ball_marker.scale = Vector3(x=ball_diameter,
+                                         y=ball_diameter,
+                                         z=ball_diameter)
         self.ball_marker.color = ColorRGBA(r=1.0, g=0.0, b=0.0, a=0.8)
 
         self.marker_array = MarkerArray(markers=[self.ball_marker])
 
         self.inhand = True
+
+        self.create_timer(self.dt, self.update)
+        self.get_logger().info(f"Running with dt of {self.dt} seconds ({rate}Hz)")
 
 
     def shutdown(self):
@@ -259,28 +262,28 @@ class DemoNode(Node):
 
         if self.inhand:
             if hand_position is not None:
-                self.p = hand_position
+                self.p_ball = hand_position
             else:
                 print("Hand position not found")
  
         else:
 
             k = 0.05
-            v_mag = np.linalg.norm(self.v)
-            drag = -k * v_mag * self.v
+            v_mag = np.linalg.norm(self.v_ball)
+            drag = -k * v_mag * self.v_ball
 
-            self.a = np.array([0.0, 0.0, -9.81]) + drag
+            self.a_ball = np.array([0.0, 0.0, -9.81]) + drag
             
-            self.v += self.dt * self.a
-            self.p += self.dt * self.v
+            self.v_ball += self.dt * self.a_ball
+            self.p_ball += self.dt * self.v_ball
 
-            if self.p[2] < self.radius:
-                self.p[2] = self.radius + (self.radius - self.p[2])
-                self.v[2] *= -1.0
-                self.v[0] *= 0.0
+            if self.p_ball[2] < self.radius_ball:
+                self.p_ball[2] = self.radius_ball + (self.radius_ball - self.p_ball[2])
+                self.v_ball[2] *= -1.0
+                self.v_ball[0] *= 0.0
 
         self.ball_marker.header.stamp  = self.now().to_msg()
-        self.ball_marker.pose.position = Point_from_p(self.p)
+        self.ball_marker.pose.position = Point_from_p(self.p_ball)
         self.pub_ball.publish(self.marker_array)
 
 
