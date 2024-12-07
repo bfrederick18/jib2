@@ -103,21 +103,19 @@ class SquatNode(Node):
         self.z_pelvis_mid = (self.Z_PELVIS_TOP + self.Z_PELVIS_LOW) / 2
         self.z_pelvis_A = (self.Z_PELVIS_TOP - self.Z_PELVIS_LOW) / 2
 
-        self.chain_left_leg = KinematicChain(self, 'pelvis', 'l_foot', [JOINT_NAMES[i] for i in JOINT_ORDERS['l_leg']])
-        self.chain_right_leg = KinematicChain(self, 'pelvis', 'r_foot', [JOINT_NAMES[i] for i in JOINT_ORDERS['r_leg']])
-        self.chain_head = KinematicChain(self, 'pelvis', 'head', [JOINT_NAMES[i] for i in JOINT_ORDERS['head']])
-        self.chain_left_hand = KinematicChain(self, 'pelvis', 'l_hand', [JOINT_NAMES[i] for i in JOINT_ORDERS['l_hand']])
-        self.chain_right_hand = KinematicChain(self, 'pelvis', 'r_hand', [JOINT_NAMES[i] for i in JOINT_ORDERS['r_hand']])
+        # Kinematic Chains
+        self.chain_lfoot = KinematicChain(self, 'pelvis', 'l_foot', [JOINT_NAMES[i] for i in JOINT_ORDERS['l_leg']])
 
         self.q = np.zeros(len(JOINT_NAMES))
         self.qdot = np.zeros(len(JOINT_NAMES))
 
-        ptip, _, _, _ = self.chain_left_leg.fkin([self.q[i] for i in JOINT_ORDERS['l_leg']])
-        self.p_foot_l_0 = ptip
-        self.pd = self.p_foot_l_0 + pxyz(self.X_PELVIS, self.Y_PELVIS, self.Z_PELVIS_TOP)
+        # Initial Left Foot Position
+        ptip0_lfoot, _, _, _ = self.chain_lfoot.fkin([self.q[i] for i in JOINT_ORDERS['l_leg']])
+        self.pd_lfoot = ptip0_lfoot + pxyz(self.X_PELVIS, self.Y_PELVIS, self.Z_PELVIS_TOP)
 
-        self.Td = T_from_Rp(Reye(), self.pd)
+        self.Td_lfoot = T_from_Rp(Reye(), self.pd_lfoot)
 
+        # Control Gains
         self.K_p = 10.0
         self.K_s = 10.0
         self.gamma = 0.1
@@ -138,6 +136,7 @@ class SquatNode(Node):
         v_z_pelvis = -self.z_pelvis_A * sin(self.t)
         v_pelvis = np.array([0.0, 0.0, v_z_pelvis])
 
+        # Publish Pelvis Transform
         trans = TransformStamped()
         trans.header.stamp = self.now().to_msg()
         trans.header.frame_id = 'world'
@@ -145,33 +144,40 @@ class SquatNode(Node):
         trans.transform = Transform_from_T(T_pelvis)
         self.broadcaster.sendTransform(trans)
 
-        Td = np.linalg.inv(T_pelvis) @ self.Td
-        self.pd = [i[3] for i in Td[0:3]]
-        vd_foot = -v_pelvis
-        wd_foot = np.zeros(3)
+        # Desired Foot Transform
+        Td_lfoot = np.linalg.inv(T_pelvis) @ self.Td_lfoot
+        self.pd_lfoot = [i[3] for i in Td_lfoot[0:3]]
+        vd_lfoot = -v_pelvis
+        wd_lfoot = np.zeros(3)
 
-        # Forward kinematics with correct joint order
-        ptip, Rtip, Jv, Jw = self.chain_left_leg.fkin([self.q[i] for i in JOINT_ORDERS['l_leg']])
+        # Forward Kinematics for Left Foot
+        ptip_lfoot, Rtip_lfoot, Jv_lfoot, Jw_lfoot = self.chain_lfoot.fkin(
+            [self.q[i] for i in JOINT_ORDERS['l_leg']]
+        )
 
-        err_pos = self.pd - ptip
-        err_rot = eR(Reye(), Rtip)
+        # Errors
+        err_pos_lfoot = self.pd_lfoot - ptip_lfoot
+        err_rot_lfoot = eR(Reye(), Rtip_lfoot)
+        err_lfoot = np.concatenate((err_pos_lfoot, err_rot_lfoot))
+        J_lfoot = np.vstack((Jv_lfoot, Jw_lfoot))
 
-        err = np.concatenate((err_pos, err_rot))
-        J = np.vstack((Jv, Jw))
-
+        # Weighted Pseudoinverse
         weight_mat = self.gamma**2 * np.eye(6)
-        Jwinv = np.linalg.pinv(J.T @ J + weight_mat) @ J.T
+        Jwinv_lfoot = np.linalg.pinv(J_lfoot.T @ J_lfoot + weight_mat) @ J_lfoot.T
 
-        q_nominal = np.array([0.0, 0.0, 0.0, (pi / 2), 0.0, 0.0])
-        qsdot = -self.K_s * (self.q[0:6] - q_nominal)
+        # Nominal Joint Positions
+        q_nominal_lfoot = np.array([0.0, 0.0, 0.0, (pi / 2), 0.0, 0.0])
+        qsdot_lfoot = -self.K_s * (self.q[0:6] - q_nominal_lfoot)
 
+        # Update Joint Velocities and Positions
         self.qdot[0:6] = (
-            Jwinv @ (np.concatenate((vd_foot, wd_foot)) + self.K_p * err)
-            + (np.eye(6) - Jwinv @ J) @ qsdot
+            Jwinv_lfoot @ (np.concatenate((vd_lfoot, wd_lfoot)) + self.K_p * err_lfoot)
+            + (np.eye(6) - Jwinv_lfoot @ J_lfoot) @ qsdot_lfoot
         )
         for idx, mapped_idx in enumerate(JOINT_ORDERS['l_leg']):
             self.q[mapped_idx] += self.qdot[idx] * self.dt
 
+        # Publish Joint States
         cmdmsg = JointState()
         cmdmsg.header.stamp = self.now().to_msg()
         cmdmsg.name = JOINT_NAMES
