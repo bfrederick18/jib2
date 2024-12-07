@@ -82,7 +82,7 @@ JOINT_ORDERS = {
 }
 
 
-class DemoNode(Node):
+class SquatNode(Node):
     def __init__(self, name, rate):
         super().__init__(name)
 
@@ -103,7 +103,6 @@ class DemoNode(Node):
         self.z_pelvis_mid = (self.Z_PELVIS_TOP + self.Z_PELVIS_LOW) / 2
         self.z_pelvis_A = (self.Z_PELVIS_TOP - self.Z_PELVIS_LOW) / 2
 
-        # Correct joint order for KinematicChain
         self.chain_left_leg = KinematicChain(self, 'pelvis', 'l_foot', [JOINT_NAMES[i] for i in JOINT_ORDERS['l_leg']])
         self.chain_right_leg = KinematicChain(self, 'pelvis', 'r_foot', [JOINT_NAMES[i] for i in JOINT_ORDERS['r_leg']])
         self.chain_head = KinematicChain(self, 'pelvis', 'head', [JOINT_NAMES[i] for i in JOINT_ORDERS['head']])
@@ -113,8 +112,7 @@ class DemoNode(Node):
         self.q = np.zeros(len(JOINT_NAMES))
         self.qdot = np.zeros(len(JOINT_NAMES))
 
-        # Forward kinematics with correct joint order
-        (ptip, Rtip, _, _) = self.chain_left_leg.fkin([self.q[i] for i in [2, 0, 1, 3, 5, 4]])
+        ptip, _, _, _ = self.chain_left_leg.fkin([self.q[i] for i in JOINT_ORDERS['l_leg']])
         self.p_foot_l_0 = ptip
         self.pd = self.p_foot_l_0 + pxyz(self.X_PELVIS, self.Y_PELVIS, self.Z_PELVIS_TOP)
 
@@ -128,11 +126,9 @@ class DemoNode(Node):
         self.get_logger().info(f"Running with dt of {self.dt} seconds ({rate}Hz)")
 
     def now(self):
-        """Returns the current ROS2 time adjusted for simulation start."""
         return self.start + Duration(seconds=self.t)
 
     def update(self):
-        """Control loop for squatting motion."""
         self.t += self.dt
 
         z_pelvis = self.z_pelvis_mid + self.z_pelvis_A * cos(self.t)
@@ -155,7 +151,7 @@ class DemoNode(Node):
         wd_foot = np.zeros(3)
 
         # Forward kinematics with correct joint order
-        (ptip, Rtip, Jv, Jw) = self.chain_left_leg.fkin([self.q[i] for i in [2, 0, 1, 3, 5, 4]])
+        ptip, Rtip, Jv, Jw = self.chain_left_leg.fkin([self.q[i] for i in JOINT_ORDERS['l_leg']])
 
         err_pos = self.pd - ptip
         err_rot = eR(Reye(), Rtip)
@@ -169,13 +165,11 @@ class DemoNode(Node):
         q_nominal = np.array([0.0, 0.0, 0.0, (pi / 2), 0.0, 0.0])
         qsdot = -self.K_s * (self.q[0:6] - q_nominal)
 
-        # Update joint velocities using correct joint order
         self.qdot[0:6] = (
             Jwinv @ (np.concatenate((vd_foot, wd_foot)) + self.K_p * err)
             + (np.eye(6) - Jwinv @ J) @ qsdot
         )
-        # Update joint positions using correct joint order
-        for idx, mapped_idx in enumerate([2, 0, 1, 3, 5, 4]):
+        for idx, mapped_idx in enumerate(JOINT_ORDERS['l_leg']):
             self.q[mapped_idx] += self.qdot[idx] * self.dt
 
         cmdmsg = JointState()
@@ -191,7 +185,7 @@ class DemoNode(Node):
 #
 def main(args=None):
     rclpy.init(args=args)
-    node = DemoNode('squat', 100)
+    node = SquatNode('squat', 100)
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
