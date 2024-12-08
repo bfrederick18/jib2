@@ -134,8 +134,6 @@ class ThrowNode(Node):
         self.Td_lfoot = T_from_Rp(Reye(), self.pd_lfoot)
         self.Td_rfoot = T_from_Rp(Reye(), self.pd_rfoot)
 
-        
-        self.chain_rhand = KinematicChain(self, 'pelvis', 'r_hand', [JOINT_NAMES[i] for i in JOINT_ORDERS['r_hand']])
 
         ptip0_rhand, _, _, _ = self.chain_rhand.fkin([self.q[i] for i in JOINT_ORDERS['r_hand']])
         self.pd_rhand = ptip0_rhand + pxyz(self.X_PELVIS, -self.Y_PELVIS * 4, self.Z_PELVIS_TOP)

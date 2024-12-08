@@ -1,5 +1,5 @@
 """
-ros2 launch jib2 squatdrop.launch.py
+ros2 launch jib2 cannonball.launch.py
 """
 
 import os
@@ -21,25 +21,9 @@ def generate_launch_description():
 
     # Locate the RVIZ configuration file.
     rvizcfg = os.path.join(pkgdir('demos'), 'rviz/viewmarkers.rviz')
-    
-    # Locate the URDF file.
-    urdf = os.path.join(pkgdir('atlas_description'), 'urdf/atlas_v5.urdf')
-
-    # Load the robot's URDF file (XML).
-    with open(urdf, 'r') as file:
-        robot_description = file.read()
-
 
     ######################################################################
     # PREPARE THE LAUNCH ELEMENTS
-
-    # Configure a node for the robot_state_publisher.
-    node_robot_state_publisher = Node(
-        name       = 'robot_state_publisher', 
-        package    = 'robot_state_publisher',
-        executable = 'robot_state_publisher',
-        output     = 'screen',
-        parameters = [{'robot_description': robot_description}])
 
     node_rviz = Node(
         name       = 'rviz', 
@@ -49,10 +33,17 @@ def generate_launch_description():
         arguments  = ['-d', rvizcfg],
         on_exit    = Shutdown())
     
-    node_squatdrop = Node(
-        name       = 'squatdrop',
+    node_cannonball = Node(
+        name       = 'cannonball',
         package    = 'jib2',
-        executable = 'squatdrop',
+        executable = 'cannonball',
+        output     = 'screen',
+        on_exit    = Shutdown())
+    
+    node_subscriber = Node(
+        name       = 'subscriber',
+        package    = 'jib2',
+        executable = 'subscriber',
         output     = 'screen',
         on_exit    = Shutdown())
 
@@ -61,7 +52,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         # Start the robot_state_publisher, RVIZ, and the demo.
-        node_robot_state_publisher,
         node_rviz,
-        node_squatdrop
+        node_cannonball,
+        node_subscriber
     ])

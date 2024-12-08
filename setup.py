@@ -27,7 +27,9 @@ setup(
             'balldrop = jib2.balldrop:main',
             'ballinhand = jib2.ballinhand:main',
             'squatdrop = jib2.squatdrop:main',
-            'throw = jib2.throw:main'
+            'throw = jib2.throw:main',
+            'cannonball = jib2.cannonball:main',
+            'subscriber = jib2.subscriber:main'
         ],
     },
 )
