@@ -105,16 +105,15 @@ class DemoNode(Node):
     
 
     def update_ball(self):
-        p_lhand_pelvis_pelvis, _, _, _ = self.chain_lhand.fkin(c.joint_builder(self.q, 'l_arm'))
-
-        if self.t > 2.0:
+        if self.t > 4.0 and self.ball_in_hand:
+            self.v_ball_world_world = self.v_rhand_world_world
             self.ball_in_hand = False
 
-        p_lhand_world_world = p_lhand_pelvis_pelvis + self.p_pelvis_world_world
+        p_rhand_world_world = self.p_rhand_pelvis_pelvis + self.p_pelvis_world_world
 
         if self.ball_in_hand:
-            if p_lhand_world_world is not None:
-                self.p_ball_world_world = p_lhand_world_world 
+            if p_rhand_world_world is not None:
+                self.p_ball_world_world = p_rhand_world_world 
             else:
                 print('Hand position not found')
         else:
@@ -165,6 +164,7 @@ class DemoNode(Node):
         wd_lfoot = wd_rfoot = np.zeros(3)
 
         vd_rhand_world_world = np.array([0.0, v_y_rhand_world, 0.0])
+        self.v_rhand_world_world = vd_rhand_world_world
         wd_rhand_world_world = np.zeros(3)
 
         (p_lfoot_pelvis_pelvis, Rtip_lfoot_pelvis_pelvis, 
@@ -176,6 +176,8 @@ class DemoNode(Node):
         (p_rhand_pelvis_pelvis, R_rhand_pelvis_pelvis, 
          Jv_rhand_pelvis_pelvis, Jw_rhand_pelvis_pelvis) = self.chain_rhand.fkin(
              c.joint_builder(self.q, 'r_arm'))
+        
+        self.p_rhand_pelvis_pelvis = p_rhand_pelvis_pelvis
 
         err_pos_lfoot = self.pd_lfoot_pelvis_world - p_lfoot_pelvis_pelvis
         err_rot_lfoot = eR(Reye(), Rtip_lfoot_pelvis_pelvis)
@@ -204,7 +206,7 @@ class DemoNode(Node):
 
         q_nominal_lfoot = np.array([0.0, 0.0, 0.0, (3 * pi / 4), 0.0, 0.0])
         q_nominal_rfoot = np.array([0.0, 0.0, 0.0, (3 * pi / 4), 0.0, 0.0])
-        q_nominal_rhand = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        q_nominal_rhand = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, (pi / 2), 0.0, 0.0, 0.0])
         q_nominal = np.concatenate((q_nominal_lfoot, q_nominal_rfoot, q_nominal_rhand))
         qsdot = -self.K_s * (self.q[np.r_[c.JOINT_ORDERS['l_leg'], c.JOINT_ORDERS['r_leg'], c.JOINT_ORDERS['r_arm']]] - q_nominal)
 
