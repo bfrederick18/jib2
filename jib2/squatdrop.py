@@ -59,8 +59,8 @@ class DemoNode(Node):
         p_rfoot_pelvis_pelvis, _, _, _ = self.chain_rfoot.fkin(c.joint_builder(self.q, 'r_leg'))
         p_rhand_pelvis_pelvis, _, _, _ = self.chain_rhand.fkin(c.joint_builder(self.q, 'r_arm'))
 
-        self.p_lfoot_pelvis_world = p_lfoot_pelvis_pelvis + pxyz(c.X_PELVIS, c.Y_PELVIS, c.Z_PELVIS_TOP)
-        self.p_rfoot_pelvis_world = p_rfoot_pelvis_pelvis + pxyz(c.X_PELVIS, c.Y_PELVIS, c.Z_PELVIS_TOP)
+        self.p_lfoot_pelvis_world = p_lfoot_pelvis_pelvis + pxyz(c.X_PELVIS, c.Y_PELVIS, c.Z_PELVIS_TOP) + pxyz(0.0, 0.1, 0.0)
+        self.p_rfoot_pelvis_world = p_rfoot_pelvis_pelvis + pxyz(c.X_PELVIS, c.Y_PELVIS, c.Z_PELVIS_TOP )+ pxyz(0.0, -0.1, 0.0)
         self.p_rhand_pelvis_world = p_rhand_pelvis_pelvis + pxyz(c.X_PELVIS, c.Y_PELVIS, c.Z_PELVIS_TOP)
 
         self.Td_lfoot_pelvis_world = T_from_Rp(Reye(), self.p_lfoot_pelvis_world)
@@ -95,6 +95,9 @@ class DemoNode(Node):
         self.create_timer(self.dt, self.update)
         self.get_logger().info(f'Running with dt of {self.dt} seconds ({rate}Hz)')
 
+        self.vd = np.array([0.0, 0.0, 0.0])
+        
+        self.last_v_rhand_world_world = np.array([0.0, 0.0, 0.0])
 
     def shutdown(self):
         self.destroy_node()
@@ -105,15 +108,24 @@ class DemoNode(Node):
     
 
     def update_ball(self):
-        if self.t > 4.0 and self.ball_in_hand:
-            self.v_ball_world_world = self.v_rhand_world_world
-            self.ball_in_hand = False
+        # p_rhand_world_world = self.p_rhand_pelvis_pelvis + self.p_pelvis_world_world
+        if self.R_pelvis_world_world is not None:  # Adds the proper pelvis rotations to the hand
+            p_rhand_world_world = self.R_pelvis_world_world @ self.p_rhand_pelvis_pelvis + self.p_pelvis_world_world
+        else:
+            p_rhand_world_world = self.p_rhand_pelvis_pelvis + self.p_pelvis_world_world
 
-        p_rhand_world_world = self.p_rhand_pelvis_pelvis + self.p_pelvis_world_world
+        # if self.t > 4.0 and self.ball_in_hand:
+        #     self.v_ball_world_world = self.v_rhand_world_world
+        #     self.ball_in_hand = False
+        if self.ball_in_hand:  # BFred: now releases the ball at the max y velocity of the hand
+            if self.v_rhand_world_world[1] > 0.0 and self.last_v_rhand_world_world[1] > self.v_rhand_world_world[1]:
+                self.v_ball_world_world = self.v_rhand_world_world
+                self.ball_in_hand = False
+            self.last_v_rhand_world_world = self.v_rhand_world_world
 
         if self.ball_in_hand:
             if p_rhand_world_world is not None:
-                self.p_ball_world_world = p_rhand_world_world 
+                self.p_ball_world_world = p_rhand_world_world
             else:
                 print('Hand position not found')
         else:
@@ -129,13 +141,17 @@ class DemoNode(Node):
                 self.v_ball_world_world[0] *= 0.0
 
 
+    def cost(self, J):
+        pass
+
+
     def update(self):
         self.t += self.dt
 
         z_pelvis_world = c.Z_PELVIS_MID + c.Z_PELVIS_AMP * cos(c.Z_PELVIS_PER_PI * pi * self.t)
         self.p_pelvis_world_world = pxyz(c.X_PELVIS, c.Y_PELVIS, z_pelvis_world)
-        R_pelvis_world_world = Reye()
-        T_pelvis_world_world = T_from_Rp(R_pelvis_world_world, self.p_pelvis_world_world)
+        self.R_pelvis_world_world = Rotz(c.THROW_Y_RHAND_MID + c.THROW_Y_RHAND_AMP * sin(c.THROW_Y_RHAND_PER_PI * pi * (self.t + c.THROW_Y_RHAND_SHIFT_PI * pi)))
+        T_pelvis_world_world = T_from_Rp(self.R_pelvis_world_world, self.p_pelvis_world_world)
         v_pelvis_world_world = np.array([0.0, 0.0, -c.Z_PELVIS_AMP * c.Z_PELVIS_PER_PI * pi * sin(c.Z_PELVIS_PER_PI * pi * self.t)])
 
         y_rhand_world = c.THROW_Y_RHAND_MID + c.THROW_Y_RHAND_AMP * sin(c.THROW_Y_RHAND_PER_PI * pi * (self.t + c.THROW_Y_RHAND_SHIFT_PI * pi))
@@ -160,12 +176,11 @@ class DemoNode(Node):
         self.pd_lfoot_pelvis_world = [i[3] for i in Td_lfoot_pelvis_pelvis[0:3]]
         self.pd_rfoot_pelvis_world = [i[3] for i in Td_rfoot_pelvis_pelvis[0:3]]
 
-        vd_lfoot = vd_rfoot = -v_pelvis_world_world
-        wd_lfoot = wd_rfoot = np.zeros(3)
+        vd_lfoot = vd_rfoot = -v_pelvis_world_world 
+        wd_lfoot = wd_rfoot = np.array([0.0, 0.0, 0.0])
 
-        vd_rhand_world_world = np.array([0.0, v_y_rhand_world, 0.0])
+        vd_rhand_world_world = pxyz(0.0, v_y_rhand_world, 0.0)
         self.v_rhand_world_world = vd_rhand_world_world
-        wd_rhand_world_world = np.zeros(3)
 
         (p_lfoot_pelvis_pelvis, Rtip_lfoot_pelvis_pelvis, 
          Jv_lfoot_pelvis_pelvis, Jw_lfoot_pelvis_pelvis) = self.chain_lfoot.fkin(
@@ -180,16 +195,15 @@ class DemoNode(Node):
         self.p_rhand_pelvis_pelvis = p_rhand_pelvis_pelvis
 
         err_pos_lfoot = self.pd_lfoot_pelvis_world - p_lfoot_pelvis_pelvis
-        err_rot_lfoot = eR(Reye(), Rtip_lfoot_pelvis_pelvis)
+        err_rot_lfoot = eR(self.R_pelvis_world_world.T, Rtip_lfoot_pelvis_pelvis)  # BFred: Reye() becomes the transpose of the pelvis
         err_pos_rfoot = self.pd_rfoot_pelvis_world - p_rfoot_pelvis_pelvis
-        err_rot_rfoot = eR(Reye(), Rtip_rfoot_pelvis_pelvis)
+        err_rot_rfoot = eR(self.R_pelvis_world_world.T, Rtip_rfoot_pelvis_pelvis)  # Here too
         err_pos_rhand = self.pd_rhand_world_world - p_rhand_pelvis_pelvis
-        err_rot_rhand = eR(Reye(), R_rhand_pelvis_pelvis)
 
         err = np.concatenate((
             err_pos_lfoot, err_rot_lfoot, 
             err_pos_rfoot, err_rot_rfoot, 
-            err_pos_rhand, err_rot_rhand
+            err_pos_rhand, #err_rot_rhand
         ))
 
         J = np.vstack([
@@ -198,27 +212,34 @@ class DemoNode(Node):
             np.hstack([np.zeros_like(Jv_lfoot_pelvis_pelvis), Jv_rfoot_pelvis_pelvis, np.zeros_like(Jv_rhand_pelvis_pelvis)]),
             np.hstack([np.zeros_like(Jw_lfoot_pelvis_pelvis), Jw_rfoot_pelvis_pelvis, np.zeros_like(Jw_rhand_pelvis_pelvis)]),
             np.hstack([np.zeros_like(Jv_lfoot_pelvis_pelvis), np.zeros_like(Jv_rfoot_pelvis_pelvis), Jv_rhand_pelvis_pelvis]),
-            np.hstack([np.zeros_like(Jw_lfoot_pelvis_pelvis), np.zeros_like(Jw_rfoot_pelvis_pelvis), Jw_rhand_pelvis_pelvis])
+            #np.hstack([np.zeros_like(Jw_lfoot_pelvis_pelvis), np.zeros_like(Jw_rfoot_pelvis_pelvis), Jw_rhand_pelvis_pelvis])
         ])
 
-        weight_mat = self.gamma**2 * np.eye(J.shape[1])
+        """Jv_
+        cost = cost()
+        """
+
+
+        weight_mat = self.gamma**2 * np.eye(J.shape[1]) 
         Jwinv = np.linalg.pinv(J.T @ J + weight_mat) @ J.T
 
         q_nominal_lfoot = np.array([0.0, 0.0, 0.0, (3 * pi / 4), 0.0, 0.0])
         q_nominal_rfoot = np.array([0.0, 0.0, 0.0, (3 * pi / 4), 0.0, 0.0])
-        q_nominal_rhand = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, (pi / 2), 0.0, 0.0, 0.0])
+        q_nominal_rhand = np.array([0.0, 0.0, 0.0, 0.0, 0.0, -pi / 2, 0.0, 0.0, 0.0, 0.0])
         q_nominal = np.concatenate((q_nominal_lfoot, q_nominal_rfoot, q_nominal_rhand))
+
         qsdot = -self.K_s * (self.q[np.r_[c.JOINT_ORDERS['l_leg'], c.JOINT_ORDERS['r_leg'], c.JOINT_ORDERS['r_arm']]] - q_nominal)
 
-        qdot = Jwinv @ (np.concatenate((vd_lfoot, wd_lfoot, vd_rfoot, wd_rfoot, vd_rhand_world_world, wd_rhand_world_world)) + self.K_p * err) + \
-            (np.eye(J.shape[1]) - Jwinv @ J) @ qsdot
+
+        #qdot = Jwinv @ (np.concatenate((vd_lfoot, wd_lfoot, vd_rfoot, wd_rfoot, vd_rhand_world_world, wd_rhand_world_world)) + self.K_p * err) + (np.eye(J.shape[1]) - Jwinv @ J) @ qsdot
+        qdot = Jwinv @ (np.concatenate((vd_lfoot, wd_lfoot, vd_rfoot, wd_rfoot, vd_rhand_world_world)) + self.K_p * err) + (np.eye(J.shape[1]) - Jwinv @ J) @ qsdot
+
 
         for i, mapped_i in enumerate(np.r_[c.JOINT_ORDERS['l_leg'], c.JOINT_ORDERS['r_leg'], c.JOINT_ORDERS['r_arm']]):
             self.q[mapped_i] += qdot[i] * self.dt
 
-
         self.update_ball()
-        
+
 
         cmdmsg = JointState()
         cmdmsg.header.stamp = self.now().to_msg()
