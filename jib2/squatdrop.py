@@ -95,8 +95,6 @@ class DemoNode(Node):
         self.create_timer(self.dt, self.update)
         self.get_logger().info(f'Running with dt of {self.dt} seconds ({rate}Hz)')
 
-        self.vd = np.array([0.0, 0.0, 0.0])
-        
         self.last_v_rhand_world_world = np.array([0.0, 0.0, 0.0])
 
     def shutdown(self):
@@ -117,7 +115,7 @@ class DemoNode(Node):
         # if self.t > 4.0 and self.ball_in_hand:
         #     self.v_ball_world_world = self.v_rhand_world_world
         #     self.ball_in_hand = False
-        if self.ball_in_hand:  # BFred: now releases the ball at the max y velocity of the hand
+        if self.t > 2.0 and self.ball_in_hand:  # BFred: now releases the ball at the max y velocity of the hand
             if self.v_rhand_world_world[1] > 0.0 and self.last_v_rhand_world_world[1] > self.v_rhand_world_world[1]:
                 self.v_ball_world_world = self.v_rhand_world_world
                 self.ball_in_hand = False
@@ -129,7 +127,7 @@ class DemoNode(Node):
             else:
                 print('Hand position not found')
         else:
-            a_drag_ball = 0.05 * np.linalg.norm(self.v_ball_world_world) * self.v_ball_world_world
+            a_drag_ball = 0.01 * np.linalg.norm(self.v_ball_world_world) * self.v_ball_world_world
             self.a_ball_world_world = np.array([0.0, 0.0, -c.GRAVITY]) - a_drag_ball
             
             self.v_ball_world_world += self.dt * self.a_ball_world_world
@@ -150,7 +148,7 @@ class DemoNode(Node):
 
         z_pelvis_world = c.Z_PELVIS_MID + c.Z_PELVIS_AMP * cos(c.Z_PELVIS_PER_PI * pi * self.t)
         self.p_pelvis_world_world = pxyz(c.X_PELVIS, c.Y_PELVIS, z_pelvis_world)
-        self.R_pelvis_world_world = Rotz(c.THROW_Y_RHAND_MID + c.THROW_Y_RHAND_AMP * sin(c.THROW_Y_RHAND_PER_PI * pi * (self.t + c.THROW_Y_RHAND_SHIFT_PI * pi)))
+        self.R_pelvis_world_world = Rotz(c.THROW_Y_RHAND_MID + 1.3 * c.THROW_Y_RHAND_AMP * sin(c.THROW_Y_RHAND_PER_PI * pi * (self.t + c.THROW_Y_RHAND_SHIFT_PI * pi)))
         T_pelvis_world_world = T_from_Rp(self.R_pelvis_world_world, self.p_pelvis_world_world)
         v_pelvis_world_world = np.array([0.0, 0.0, -c.Z_PELVIS_AMP * c.Z_PELVIS_PER_PI * pi * sin(c.Z_PELVIS_PER_PI * pi * self.t)])
 
@@ -203,7 +201,7 @@ class DemoNode(Node):
         err = np.concatenate((
             err_pos_lfoot, err_rot_lfoot, 
             err_pos_rfoot, err_rot_rfoot, 
-            err_pos_rhand, #err_rot_rhand
+            err_pos_rhand #err_rot_rhand
         ))
 
         J = np.vstack([
@@ -240,7 +238,6 @@ class DemoNode(Node):
 
         self.update_ball()
 
-
         cmdmsg = JointState()
         cmdmsg.header.stamp = self.now().to_msg()
         cmdmsg.name = c.JOINT_NAMES
@@ -255,7 +252,7 @@ class DemoNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = DemoNode('squatdrop', 100)
+    node = DemoNode('squatdrop', 200)
     rclpy.spin(node)
     node.shutdown()
     rclpy.shutdown()
